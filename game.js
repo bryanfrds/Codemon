@@ -244,7 +244,11 @@ class CodemonGame {
     const area = AREAS[this.currentArea];
     const speciesId = area.possibleEncounters[Math.floor(Math.random() * area.possibleEncounters.length)];
     const species = CODEMON_SPECIES.find(s => s.id === speciesId);
-    const enemyLevel = Math.max(1, this.player.level + Math.floor(Math.random() * 3) - 1);
+    // Match the creature you're fighting with, give or take one level. This used
+    // player.level, which nothing ever raises, so wild ones stayed at level 1-2
+    // while your team grew and fights were never close.
+    const lead = this.player.getActiveCodemon();
+    const enemyLevel = Math.max(1, lead.level + Math.floor(Math.random() * 3) - 1);
     const enemy = new Codemon(species, enemyLevel);
 
     this.battle = new BattleState(this.player.getActiveCodemon(), enemy);
