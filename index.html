@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeMon: Creature Battle & Collection RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-dark">
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-group">
+        <span class="logo-icon">🧬</span>
+        <div>
+          <h1 class="title">CODEMON</h1>
+          <p class="subtitle">Creature Battle RPG</p>
+        </div>
+      </div>
+      <div class="header-stats">
+        <div class="stat-badge">
+          <span class="label">LEVEL</span>
+          <span id="playerLevel" class="value">1</span>
+        </div>
+        <div class="stat-badge">
+          <span class="label">CAUGHT</span>
+          <span id="caughtCount" class="value">0/5</span>
+        </div>
+        <div class="stat-badge">
+          <span class="label">💰 GOLD</span>
+          <span id="goldCount" class="value">100</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Left Panel: Team & Inventory -->
+      <aside class="left-panel">
+        <div class="panel-header">
+          <h2>YOUR TEAM</h2>
+        </div>
+        <div id="teamList" class="team-list">
+          <div class="empty-state">No creatures yet. Catch some CodeMons!</div>
+        </div>
+
+        <div class="panel-header mt-3">
+          <h2>ITEMS</h2>
+        </div>
+        <div id="itemList" class="item-list">
+          <div class="item-slot">
+            <span class="item-icon">🔴</span>
+            <span class="item-name">Pokéball</span>
+            <span id="pokeballCount" class="item-count">5</span>
+          </div>
+          <div class="item-slot">
+            <span class="item-icon">🟡</span>
+            <span class="item-name">Great Ball</span>
+            <span id="greatballCount" class="item-count">2</span>
+          </div>
+          <div class="item-slot">
+            <span class="item-icon">💊</span>
+            <span class="item-name">Potion</span>
+            <span id="potionCount" class="item-count">3</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center: Game View -->
+      <section class="game-view">
+        <div class="screen-container">
+          <!-- Exploration / Battle View -->
+          <div id="explorationView" class="view-section">
+            <div class="exploration-header">
+              <h2 id="areaName">Route 404: ERROR ZONE</h2>
+              <p id="areaDesc">Wild CodeMons appear here!</p>
+            </div>
+            <canvas id="explorationCanvas" width="500" height="400" class="game-canvas"></canvas>
+            <div class="exploration-controls">
+              <button id="moveUpBtn" class="direction-btn">▲</button>
+              <div class="horizontal-btns">
+                <button id="moveLeftBtn" class="direction-btn">◀</button>
+                <button id="moveDownBtn" class="direction-btn">▼</button>
+                <button id="moveRightBtn" class="direction-btn">▶</button>
+              </div>
+              <button id="interactBtn" class="btn btn-primary">⚔️ ENCOUNTER</button>
+            </div>
+          </div>
+
+          <!-- Battle View (Hidden by default) -->
+          <div id="battleView" class="view-section hidden">
+            <div class="battle-header">
+              <div class="battle-trainer-info">
+                <span id="enemyName" class="enemy-name">Wild CodeMon</span>
+                <div class="hp-bar-battle">
+                  <div id="enemyHpBar" class="hp-fill" style="width: 100%"></div>
+                  <span id="enemyHpText" class="hp-text">HP: 30/30</span>
+                </div>
+              </div>
+              <canvas id="battleCanvas" width="500" height="300" class="game-canvas"></canvas>
+              <div class="battle-trainer-info">
+                <span id="allyName" class="ally-name">Your CodeMon</span>
+                <div class="hp-bar-battle">
+                  <div id="allyHpBar" class="hp-fill" style="width: 100%"></div>
+                  <span id="allyHpText" class="hp-text">HP: 25/25</span>
+                </div>
+              </div>
+            </div>
+            <div id="battleLog" class="battle-log">
+              <div class="log-entry">Battle started!</div>
+            </div>
+            <div class="battle-actions">
+              <button id="moveSelectBtn" class="action-btn">🔥 MOVE</button>
+              <button id="switchBtn" class="action-btn">🔄 SWITCH</button>
+              <button id="itemBtn" class="action-btn">💊 ITEM</button>
+              <button id="catchBtn" class="action-btn">🔴 CATCH</button>
+              <button id="runBtn" class="action-btn">🏃 RUN</button>
+            </div>
+          </div>
+
+          <!-- Pokedex View -->
+          <div id="pokedexView" class="view-section hidden">
+            <div class="panel-header">
+              <h2>POKEDEX</h2>
+            </div>
+            <div id="pokedexList" class="pokedex-list">
+              <div class="empty-state">Catch CodeMons to fill your Pokedex!</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Navigation & Status -->
+      <aside class="right-panel">
+        <div class="panel-header">
+          <h2>STATUS</h2>
+        </div>
+        <div class="status-box">
+          <p id="statusText">Ready to explore!</p>
+        </div>
+
+        <div class="panel-header mt-3">
+          <h2>NAVIGATION</h2>
+        </div>
+        <div class="nav-buttons">
+          <button id="navExplore" class="nav-btn active">🗺️ Explore</button>
+          <button id="navPokedex" class="nav-btn">📖 Pokedex</button>
+          <button id="navTeam" class="nav-btn">👥 Team</button>
+          <button id="navTraining" class="nav-btn">💪 Training</button>
+        </div>
+
+        <div class="panel-header mt-3">
+          <h2>AREAS</h2>
+        </div>
+        <div class="area-list">
+          <button class="area-btn active" data-area="0">Route 404</button>
+          <button class="area-btn" data-area="1">Stack Overflow</button>
+          <button class="area-btn" data-area="2">Memory Leak Lake</button>
+          <button class="area-btn" data-area="3">Debug Canyon</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <div id="catchModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="catchTitle">Catch CodeMon?</h2>
+      <div id="catchCreatureInfo"></div>
+      <div class="modal-buttons">
+        <button id="confirmCatchBtn" class="btn btn-primary">🔴 THROW BALL</button>
+        <button id="cancelCatchBtn" class="btn btn-secondary">✕ CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="moveSelectModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>SELECT MOVE</h2>
+      <div id="moveList" class="move-list"></div>
+      <button id="closeMoveModalBtn" class="btn btn-secondary">BACK</button>
+    </div>
+  </div>
+
+  <script src="creatures.js"></script>
+  <script src="battle.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
