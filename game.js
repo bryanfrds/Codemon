@@ -74,6 +74,9 @@ class CodemonGame {
     this.initUI();
     this.startGame();
     this.gameLoop();
+
+    setInterval(() => this.saveGame(), 15000);
+    window.addEventListener('pagehide', () => this.saveGame());
   }
 
   initUI() {
@@ -186,6 +189,7 @@ class CodemonGame {
     this.updateTeamUI();
     this.updateStats();
     this.setStatus(`You chose ${species.name}! Press ENCOUNTER to find wild CodeMons.`);
+    this.saveGame();
   }
 
   // View Management
@@ -225,6 +229,7 @@ class CodemonGame {
 
     this.playerPos = { x: 250, y: 200 };
     this.playerTarget = { x: 250, y: 200 };  // or it glides back to the old spot
+    this.saveGame();
     this.setStatus(`Entered ${area.name}.`);
   }
 
@@ -530,6 +535,7 @@ class CodemonGame {
     this.updateTeamUI();
     this.updateStats();
     this.setStatus(`You blacked out and lost ${lost} gold. Your team has been healed.`);
+    this.saveGame();
   }
 
   endBattle() {
@@ -538,6 +544,7 @@ class CodemonGame {
     this.updateStats();
     this.switchView('exploration');
     this.setStatus('Battle ended.');
+    this.saveGame();
   }
 
   // UI Updates
