@@ -35,6 +35,7 @@ class CodemonGame {
     this.currentArea = 0;
     this.playerPos = { x: 250, y: 200 };      // where the sprite is drawn
     this.playerTarget = { x: 250, y: 200 };   // where it's walking to
+    this.facing = 1;                          // 1 = right, -1 = left
     this.encounterChance = 0.05;
     this.autoPlay = false;        // the 🤖 AUTOPLAY button drives this
     // Battle effects: the move being animated, loose particles and floating
@@ -202,6 +203,7 @@ class CodemonGame {
   movePlayer(dx, dy) {
     // Moves the target; the sprite glides there in renderExploration. Setting the
     // drawn position directly made every step a 20px teleport.
+    if (dx) this.facing = dx < 0 ? -1 : 1;   // up/down keep the last facing
     this.playerTarget.x = Math.max(20, Math.min(480, this.playerTarget.x + dx));
     this.playerTarget.y = Math.max(20, Math.min(380, this.playerTarget.y + dy));
 
@@ -653,10 +655,14 @@ class CodemonGame {
     // Player: the lead CodeMon's sprite, so you can see who you're walking around
     // with instead of an anonymous dot.
     const lead = this.player.getActiveCodemon();
-    if (lead && SPRITES.draw(this.explorationCtx, lead.species,
-                             this.playerPos.x, this.playerPos.y, 34)) {
-      // drawn
-    } else {
+    const ctx = this.explorationCtx;
+    // Mirror the sprite around its own centre when walking left.
+    ctx.save();
+    ctx.translate(this.playerPos.x, this.playerPos.y);
+    ctx.scale(this.facing, 1);
+    const drawn = lead && SPRITES.draw(ctx, lead.species, 0, 0, 34);
+    ctx.restore();
+    if (!drawn) {
       this.explorationCtx.fillStyle = '#38bdf8';
       this.explorationCtx.beginPath();
       this.explorationCtx.arc(this.playerPos.x, this.playerPos.y, 8, 0, Math.PI * 2);
