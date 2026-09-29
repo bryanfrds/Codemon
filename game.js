@@ -5,25 +5,25 @@ const AREAS = [
     name: 'Null Pointer Meadow',
     bg: 'forest.png',
     desc: 'Where lost data roams freely.',
-    possibleEncounters: Array.from({ length: 25 }, (_, i) => i + 1)
+    possibleEncounters: Array.from({ length: 280 }, (_, i) => i + 1)
   },
   {
     name: 'Stack Overflow Hills',
     bg: 'hills.png',
     desc: 'Infinitely recursive terrain. Tread carefully.',
-    possibleEncounters: Array.from({ length: 25 }, (_, i) => i + 21)
+    possibleEncounters: Array.from({ length: 300 }, (_, i) => i + 241)
   },
   {
     name: 'Memory Leak Lake',
     bg: 'lake.png',
     desc: 'Haunted by creatures that never release resources.',
-    possibleEncounters: Array.from({ length: 30 }, (_, i) => i + 41)
+    possibleEncounters: Array.from({ length: 280 }, (_, i) => i + 501)
   },
   {
     name: 'Debug Canyon',
     bg: 'canyon.png',
     desc: 'Where broken logic comes to rest.',
-    possibleEncounters: Array.from({ length: 30 }, (_, i) => i + 71)
+    possibleEncounters: Array.from({ length: 260 }, (_, i) => i + 741)
   }
 ];
 
@@ -36,6 +36,9 @@ class CodemonGame {
     this.playerPos = { x: 250, y: 200 };
     this.encounterChance = 0.05;
     this.autoPlay = false;        // the 🤖 AUTOPLAY button drives this
+    // Battle effects: the move being animated, loose particles and floating
+    // numbers, and the HP each creature is *shown* at until its hit lands.
+    this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.autoPlayTimer = null;
 
     // Canvas
@@ -99,14 +102,38 @@ class CodemonGame {
   }
 
   startGame() {
-    // Give player starter Codemon
-    const starterSpecies = CODEMON_SPECIES[0];
-    const starter = new Codemon(starterSpecies, 5);
-    this.player.addCodemon(starter);
+    // Three starters to pick from, one each of three types, like the games it's
+    // modelled on. Species ids from the hand-named first row of the roster.
+    const STARTER_IDS = [1, 2, 5];            // Byteling (bug), BitRiot (code), Flowy (flow)
+    const box = document.getElementById('starterChoices');
+    box.innerHTML = '';
+    STARTER_IDS.forEach(id => {
+      const species = CODEMON_SPECIES.find(s => s.id === id);
+      const card = document.createElement('button');
+      card.className = 'starter-card';
+      card.dataset.speciesId = id;
+      card.innerHTML = `
+        ${SPRITES.imgFor(species, 88)}
+        <span class="starter-name">${species.name}</span>
+        <span class="starter-type">${species.type}</span>
+        <span class="starter-moves">${species.moves.join(' · ')}</span>`;
+      card.addEventListener('click', () => this.chooseStarter(species));
+      box.appendChild(card);
+    });
+    document.getElementById('starterModal').classList.remove('hidden');
 
     this.updateTeamUI();
     this.updateStats();
-    this.setStatus('Ready to explore! Press ENCOUNTER to find wild CodeMons.');
+    this.setStatus('Choose your starter CodeMon to begin.');
+  }
+
+  chooseStarter(species) {
+    if (this.player.team.length) return;       // one pick per run
+    this.player.addCodemon(new Codemon(species, 5));
+    document.getElementById('starterModal').classList.add('hidden');
+    this.updateTeamUI();
+    this.updateStats();
+    this.setStatus(`You chose ${species.name}! Press ENCOUNTER to find wild CodeMons.`);
   }
 
   // View Management
@@ -176,6 +203,7 @@ class CodemonGame {
     const enemy = new Codemon(species, enemyLevel);
 
     this.battle = new BattleState(this.player.getActiveCodemon(), enemy);
+    this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.switchView('battle');
     this.updateBattleUI();
     this.setStatus(`Wild ${enemy.species.name} appeared!`);
@@ -204,13 +232,14 @@ class CodemonGame {
   }
 
   updateHPBar(type, codemon) {
-    const hpPercent = (codemon.currentHp / codemon.hp) * 100;
+    const hp = this.shownHpFor(codemon);
+    const hpPercent = (hp / codemon.hp) * 100;
     if (type === 'playerCodemon') {
       document.getElementById('allyHpBar').style.width = `${hpPercent}%`;
-      document.getElementById('allyHpText').textContent = `HP: ${codemon.currentHp}/${codemon.hp}`;
+      document.getElementById('allyHpText').textContent = `HP: ${hp}/${codemon.hp}`;
     } else {
       document.getElementById('enemyHpBar').style.width = `${hpPercent}%`;
-      document.getElementById('enemyHpText').textContent = `HP: ${codemon.currentHp}/${codemon.hp}`;
+      document.getElementById('enemyHpText').textContent = `HP: ${hp}/${codemon.hp}`;
     }
   }
 
@@ -495,6 +524,14 @@ class CodemonGame {
   /** One decision. Deliberately simple: heal if hurt, fight, sometimes catch. */
   autoPlayStep() {
     if (!this.autoPlay) return;
+    // Let the last exchange finish animating; otherwise moves queue up faster
+    // than they can be shown and the picture falls further and further behind.
+    if (this.fxBusy()) return;
+    if (!this.player.team.length) {
+      const cards = document.querySelectorAll('#starterChoices .starter-card');
+      if (cards.length) cards[Math.floor(Math.random() * cards.length)].click();
+      return;
+    }
 
     if (this.battle && !this.battle.battleOver) {
       const me = this.battle.playerCodemon;
@@ -597,6 +634,163 @@ class CodemonGame {
     }
   }
 
+  /**
+   * HP to display: the value from before the first move involving this creature
+   * that hasn't landed yet. The rules resolve instantly, so without this the
+   * bars would drop before the attack is even shown.
+   */
+  shownHpFor(codemon) {
+    const pending = [];
+    if (this.fx.active && !this.fx.active.landed) pending.push(this.fx.active.ev);
+    if (this.battle) pending.push(...this.battle.events);
+    for (const ev of pending) {
+      if (ev.target === codemon) return ev.targetHpBefore;
+      if (ev.user === codemon) return ev.userHpBefore;
+    }
+    return codemon.currentHp;
+  }
+
+  /** True while a move is animating or waiting to. */
+  fxBusy() {
+    return !!(this.fx.active || (this.battle && this.battle.events.length));
+  }
+
+  typeColor(move) {
+    const t = (MOVE_POOL[move] || {}).type;
+    return { bug: '#7ed957', code: '#ff8c38', memory: '#ff8fd0', logic: '#a59bff',
+             flow: '#38bdf8' }[t] || '#f1f5f9';
+  }
+
+  /**
+   * Advance the effect timeline and return per-side draw offsets and filters.
+   * Each move plays for FX_MS: the user lunges, then at IMPACT the target reacts
+   * and its HP bar drops.
+   */
+  stepFx(now, pos) {
+    const FX_MS = 620, IMPACT = 0.34;
+    const out = { player: { dx: 0, dy: 0, filter: 'none' },
+                  enemy:  { dx: 0, dy: 0, filter: 'none' } };
+
+    if (!this.fx.active && this.battle.events.length) {
+      const ev = this.battle.events.shift();
+      this.fx.active = { ev, t0: now, landed: false };
+    }
+
+    const a = this.fx.active;
+    if (a) {
+      const { ev } = a;
+      const p = Math.min(1, (now - a.t0) / FX_MS);
+      const me = ev.side, them = me === 'player' ? 'enemy' : 'player';
+      const from = pos[me], to = pos[them];
+      const color = this.typeColor(ev.move);
+
+      if (ev.kind === 'heal' || ev.kind === 'buff') {
+        // Self-targeted: a glow and rising sparks, no lunge.
+        out[me].filter = `brightness(${1 + 0.6 * Math.sin(p * Math.PI)})`;
+        if (!a.landed && p >= IMPACT) {
+          a.landed = true;
+          this.burst(from.x, from.y, ev.kind === 'heal' ? '#4ade80' : '#60a5fa', 12, -1);
+          this.floatText(from.x, from.y - from.r,
+                         ev.kind === 'heal' ? `+${ev.userHp - ev.userHpBefore}` : 'DEF UP',
+                         ev.kind === 'heal' ? '#4ade80' : '#60a5fa');
+          this.updateBattleUI();
+        }
+      } else {
+        // Lunge toward the target and back, peaking just before impact.
+        if (p < IMPACT * 1.6) {
+          const k = Math.sin((p / (IMPACT * 1.6)) * Math.PI);
+          out[me].dx = (to.x - from.x) * 0.18 * k;
+          out[me].dy = (to.y - from.y) * 0.18 * k;
+        }
+        if (!a.landed && p >= IMPACT) {
+          a.landed = true;
+          if (ev.kind === 'hit') {
+            this.burst(to.x, to.y, color, 18, 0);
+            this.fx.rings.push({ x: to.x, y: to.y, color, t0: now });
+            this.floatText(to.x, to.y - to.r, `-${ev.damage}`, '#ff5a5a');
+          } else {
+            this.floatText(to.x, to.y - to.r, 'MISS', '#cbd5e1');
+          }
+          this.updateBattleUI();
+        }
+        if (p >= IMPACT) {
+          const q = (p - IMPACT) / (1 - IMPACT);          // 0..1 after impact
+          if (ev.kind === 'hit') {
+            out[them].dx = Math.sin(q * 38) * 7 * (1 - q);   // shake, dying out
+            // Blink white for the first part of the reaction.
+            if (q < 0.45 && Math.floor(q * 12) % 2 === 0) out[them].filter = 'brightness(3.2)';
+          } else {
+            out[them].dx = Math.sin(q * Math.PI) * 22;        // sidestep a miss
+          }
+        }
+      }
+
+      if (p >= 1) {
+        this.fx.active = null;
+        this.updateBattleUI();
+      }
+    }
+    return out;
+  }
+
+  burst(x, y, color, n, lift) {
+    for (let i = 0; i < n; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 1.5 + Math.random() * 3.5;
+      this.fx.particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp + lift * 2,
+                               life: 1, size: 2 + Math.random() * 3, color });
+    }
+  }
+
+  floatText(x, y, text, color) {
+    this.fx.texts.push({ x, y, text, color, life: 1 });
+  }
+
+  /** Particles, impact rings and damage numbers, drawn over the creatures. */
+  drawFxOverlay(ctx, now) {
+    this.fx.rings = this.fx.rings.filter(r => {
+      const t = (now - r.t0) / 320;
+      if (t >= 1) return false;
+      ctx.save();
+      ctx.globalAlpha = 1 - t;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 4 * (1 - t) + 1;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 12 + t * 48, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      return true;
+    });
+
+    this.fx.particles = this.fx.particles.filter(pt => {
+      pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.12; pt.life -= 0.03;
+      if (pt.life <= 0) return false;
+      ctx.globalAlpha = pt.life;
+      ctx.fillStyle = pt.color;
+      ctx.fillRect(Math.round(pt.x), Math.round(pt.y), pt.size, pt.size);
+      ctx.globalAlpha = 1;
+      return true;
+    });
+
+    ctx.save();
+    ctx.font = 'bold 20px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    this.fx.texts = this.fx.texts.filter(t => {
+      t.life -= 0.018;
+      if (t.life <= 0) return false;
+      const rise = (1 - t.life) * 46;
+      ctx.globalAlpha = Math.min(1, t.life * 2);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#0b0f17';
+      ctx.strokeText(t.text, t.x, t.y - rise);
+      ctx.fillStyle = t.color;
+      ctx.fillText(t.text, t.x, t.y - rise);
+      return true;
+    });
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
   renderBattle() {
     if (!this.battle) return;
 
@@ -631,11 +825,25 @@ class CodemonGame {
     const ex = W * 0.70, ey = H * 0.32;
     const ax = W * 0.27, ay = H * 0.70;
 
+    const now = performance.now();
+    const fx = this.stepFx(now, {
+      enemy:  { x: ex, y: ey, r: enemySize / 2 },
+      player: { x: ax, y: ay, r: allySize / 2 },
+    });
+
     platform(ex, ey + enemySize * 0.40, enemySize * 0.40);
-    SPRITES.draw(ctx, this.battle.enemyCodemon.species, ex, ey, enemySize);
+    ctx.filter = fx.enemy.filter;
+    SPRITES.draw(ctx, this.battle.enemyCodemon.species,
+                 ex + fx.enemy.dx, ey + fx.enemy.dy, enemySize);
+    ctx.filter = 'none';
 
     platform(ax, ay + allySize * 0.38, allySize * 0.40);
-    SPRITES.draw(ctx, this.battle.playerCodemon.species, ax, ay, allySize);
+    ctx.filter = fx.player.filter;
+    SPRITES.draw(ctx, this.battle.playerCodemon.species,
+                 ax + fx.player.dx, ay + fx.player.dy, allySize);
+    ctx.filter = 'none';
+
+    this.drawFxOverlay(ctx, now);
   }
 }
 

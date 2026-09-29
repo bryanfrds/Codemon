@@ -9,7 +9,7 @@
 // A species always maps to the same file, so the Pokedex is stable across reloads.
 
 const PIXMON_DIR = 'assets/pixmons';
-const PIXMON_COUNT = 60;          // how many were prepared; see prep_pixmons.py
+const PIXMON_COUNT = 1000;        // how many were prepared; see prep_pixmons.py
 const PIXMON_SIZE = 96;
 
 class CodemonSprites {

@@ -11,6 +11,11 @@ class BattleState {
     this.battleOver = false;
     this.winner = null;
     this.playerWon = false;
+    // One entry per move used, for the renderer to animate in order. The rules
+    // resolve instantly; the screen replays them one at a time.
+    this.events = [];
+    // Harden stacks for the rest of this battle only, not on the creature.
+    this.defBoost = { player: 1, enemy: 1 };
   }
 
   determineOrder() {
@@ -18,7 +23,7 @@ class BattleState {
     return this.playerSpeed >= this.enemySpeed ? 'player' : 'enemy';
   }
 
-  calculateDamage(attacker, defender, move) {
+  calculateDamage(attacker, defender, move, defMultiplier = 1) {
     const moveData = MOVE_POOL[move];
     if (!moveData) return 0;
 
@@ -26,7 +31,8 @@ class BattleState {
     const effectiveness = 1.0; // Simplified type effectiveness
     const random = 0.85 + Math.random() * 0.15;
 
-    let damage = Math.floor((2 * attacker.level / 5 + 2) * baseDamage * (attacker.stats.atk / defender.stats.def) / 50 + 2);
+    const def = defender.stats.def * defMultiplier;
+    let damage = Math.floor((2 * attacker.level / 5 + 2) * baseDamage * (attacker.stats.atk / def) / 50 + 2);
     damage = Math.floor(damage * effectiveness * random);
 
     // Accuracy check
@@ -37,17 +43,53 @@ class BattleState {
     return Math.max(1, damage);
   }
 
+  /**
+   * Resolve one move for `side` ('player' or 'enemy') and record what happened.
+   * Status moves (power 0) used to fall through the damage formula, whose
+   * Math.max(1, ...) floor made Harden and Recover deal 1 damage.
+   */
+  performMove(side, move) {
+    const user = side === 'player' ? this.playerCodemon : this.enemyCodemon;
+    const target = side === 'player' ? this.enemyCodemon : this.playerCodemon;
+    const other = side === 'player' ? 'enemy' : 'player';
+    const data = MOVE_POOL[move];
+    const name = user.species.name;
+    // HP before the move, so the screen can hold the bars here until it lands.
+    const userHpBefore = user.currentHp;
+    const targetHpBefore = target.currentHp;
+
+    if (data && data.power === 0) {
+      let what = 'did nothing';
+      let kind = 'buff';
+      if (data.isHealing) {
+        const amount = Math.max(1, Math.floor(user.hp * 0.25));
+        user.heal(amount);
+        what = `recovered ${amount} HP`;
+        kind = 'heal';
+      } else if (data.isDefensive) {
+        this.defBoost[side] *= 1.25;
+        what = 'raised its defence';
+      }
+      this.log.push(`${name} used ${move}! It ${what}.`);
+      this.events.push({ side, move, kind, user, target, userHpBefore, targetHpBefore,
+                         userHp: user.currentHp, targetHp: target.currentHp });
+      return 0;
+    }
+
+    const damage = this.calculateDamage(user, target, move, this.defBoost[other]);
+    target.takeDamage(damage);
+    this.log.push(damage === 0 ? `${name}'s ${move} missed!`
+                               : `${name} used ${move}! Dealt ${damage} damage.`);
+    this.events.push({ side, move, kind: damage === 0 ? 'miss' : 'hit', damage,
+                       user, target, userHpBefore, targetHpBefore,
+                       userHp: user.currentHp, targetHp: target.currentHp });
+    return damage;
+  }
+
   playerAttack(moveName) {
     if (!this.playerCodemon.moves.includes(moveName)) return false;
 
-    const damage = this.calculateDamage(this.playerCodemon, this.enemyCodemon, moveName);
-    this.enemyCodemon.takeDamage(damage);
-
-    this.log.push(`${this.playerCodemon.species.name} used ${moveName}! Dealt ${damage} damage.`);
-
-    if (damage === 0) {
-      this.log[this.log.length - 1] = `${this.playerCodemon.species.name}'s ${moveName} missed!`;
-    }
+    this.performMove('player', moveName);
 
     if (this.enemyCodemon.currentHp <= 0) {
       this.battleOver = true;
@@ -65,16 +107,7 @@ class BattleState {
     if (this.battleOver) return;
 
     const moveIdx = Math.floor(Math.random() * this.enemyCodemon.moves.length);
-    const move = this.enemyCodemon.moves[moveIdx];
-
-    const damage = this.calculateDamage(this.enemyCodemon, this.playerCodemon, move);
-    this.playerCodemon.takeDamage(damage);
-
-    this.log.push(`${this.enemyCodemon.species.name} used ${move}! Dealt ${damage} damage.`);
-
-    if (damage === 0) {
-      this.log[this.log.length - 1] = `${this.enemyCodemon.species.name}'s ${move} missed!`;
-    }
+    this.performMove('enemy', this.enemyCodemon.moves[moveIdx]);
 
     if (this.playerCodemon.currentHp <= 0) {
       this.battleOver = true;

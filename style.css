@@ -699,3 +699,28 @@ body {
     max-height: 300px;
   }
 }
+
+/* Starter picker: three cards side by side, stacking on narrow screens. */
+.starter-modal { max-width: 640px; width: calc(100% - 32px); }
+.starter-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.starter-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 10px;
+  background: var(--bg-secondary, #151a22);
+  border: 2px solid var(--border-color, #2a3447);
+  border-radius: 10px;
+  color: inherit; font: inherit; cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.starter-card:hover, .starter-card:focus-visible {
+  border-color: #a78bfa; transform: translateY(-2px); outline: none;
+}
+.starter-card img { width: 88px; height: 88px; }
+.starter-name { font-weight: 700; }
+.starter-type { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
+.starter-moves { font-size: 0.7rem; opacity: 0.6; text-align: center; }

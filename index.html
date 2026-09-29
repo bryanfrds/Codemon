@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1790669860">
 </head>
 <body class="bg-dark">
   <div class="app-container">
@@ -27,7 +27,7 @@
         </div>
         <div class="stat-badge">
           <span class="label">CAUGHT</span>
-          <span id="caughtCount" class="value">0/100</span>
+          <span id="caughtCount" class="value">0/1000</span>
         </div>
         <div class="stat-badge">
           <span class="label">💰 GOLD</span>
@@ -167,6 +167,13 @@
   </div>
 
   <!-- Modals -->
+  <div id="starterModal" class="modal hidden">
+    <div class="modal-content starter-modal">
+      <h2>CHOOSE YOUR STARTER</h2>
+      <div id="starterChoices" class="starter-choices"></div>
+    </div>
+  </div>
+
   <div id="catchModal" class="modal hidden">
     <div class="modal-content">
       <h2 id="catchTitle">Catch CodeMon?</h2>
@@ -186,9 +193,9 @@
     </div>
   </div>
 
-  <script src="sprites.js?v=1790663950"></script>
-  <script src="creatures.js?v=1790663950"></script>
-  <script src="battle.js?v=1790663950"></script>
-  <script src="game.js?v=1790663950"></script>
+  <script src="sprites.js?v=1790669854"></script>
+  <script src="creatures.js?v=1790669854"></script>
+  <script src="battle.js?v=1790669854"></script>
+  <script src="game.js?v=1790669854"></script>
 </body>
 </html>

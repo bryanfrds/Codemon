@@ -25,6 +25,21 @@ NAMES = {
           'Torrenta','Confluen','Deltoid','Estuary'],
 }
 
+ROOTS = {
+ 'bug':    ['Grub','Skit','Chit','Mand','Lar','Hex','Mite','Nym','Thor','Wev','Cic','Aph',
+            'Scar','Moth','Ant','Tick','Flea','Wasp','Pup','Silk'],
+ 'code':   ['Byt','Syn','Lint','Seg','Op','Hash','Tok','Pars','Comp','Macr','Flag','Regi',
+            'Stak','Lex','Cast','Sym','Link','Trac','Emit','Bin'],
+ 'memory': ['Heap','Cach','Ram','Buf','Pag','Swap','Alloc','Ptr','Slab','Arena','Frag',
+            'Block','Sect','Page','Leak','Dump','Stor','Mem','Vol','Reg'],
+ 'logic':  ['Bool','Xor','Nand','Axi','Lem','Pred','Quant','Nor','Implic','Sylo','Mod',
+            'Prov','Tru','Fals','Gate','Lamb','Infer','Theo','Deduc','Clause'],
+ 'flow':   ['Strea','Flux','Pip','Tide','Eddy','Rive','Casca','Curr','Wav','Surg',
+            'Drift','Spill','Chan','Fount','Delt','Brook','Rapi','Mist','Pour','Gyre'],
+}
+ENDINGS = ['ling','ix','on','ra','eel','kit','mite','wyrm','pup','oth','azor','ette',
+           'ox','ly','rex','mon','ari','ion','zo','ander','ite','usk','ore','ven']
+
 MOVES_BY_TYPE = {
  'bug':    ['Bite','Scratch','Harden'],
  'code':   ['StringConcat','Crash','DebugAttack','Bitshift' ],
@@ -40,34 +55,56 @@ VALID = {'Scratch','StringConcat','Bite','Crash','StackOverflow','DebugAttack','
 
 def main():
     rnd = random.Random(20260929)          # fixed seed: the roster is reproducible
-    out, sid = [], 1
-    for tier_start, tier in ((0, 'common'), (7, 'uncommon'), (14, 'rare')):
-        pass
-    for idx in range(20):                   # 20 rows, one species per type each row
-        for t in ('bug','code','memory','logic','flow'):
-            name = NAMES[t][idx]
-            # Tier by position: the first of each type is a starter, the last are rare.
-            tier = 0 if idx < 7 else (1 if idx < 14 else 2)
-            base = 18 + tier * 14
-            spread = lambda lo, hi: rnd.randint(base + lo, base + hi)
-            # Guarantee one damaging move of the species' own type: sampling
-            # freely produced creatures armed with nothing but Harden and Recover.
-            pool = [m for m in MOVES_BY_TYPE[t] if m in VALID and m not in DEFENSIVE]
-            primary = pool[idx % len(pool)]
-            others = [m for m in pool if m != primary]
-            moves = [primary]
-            if others:
-                moves.append(rnd.choice(others))
-            moves.append(rnd.choice(GENERIC))
-            out.append({
-                'id': sid, 'name': name, 'type': t,
-                'baseHp': spread(4, 18), 'baseAtk': spread(0, 14), 'baseDef': spread(-4, 10),
-                'baseSp': spread(-2, 12), 'baseSpd': spread(-6, 10),
-                'exp': 0, 'expToLevel': 60 + tier * 40 + idx * 3,
-                'catchRate': max(20, 210 - tier * 70 - idx * 4),
-                'moves': moves,
-            })
-            sid += 1
+    TYPES = ('bug', 'code', 'memory', 'logic', 'flow')
+    TOTAL = 1000
+    used = {n for names in NAMES.values() for n in names}
+    out = []
+
+    def make_name(t):
+        for _ in range(500):
+            root, end = rnd.choice(ROOTS[t]), rnd.choice(ENDINGS)
+            # Vowel meeting vowel reads badly ("Gyreeel", "Pageette"): drop one.
+            if root[-1] in 'aeiou' and end[0] in 'aeiou':
+                root = root[:-1]
+            # Same letter on both sides of the join ("Currrex", "Spillly"): drop one.
+            if root[-1] == end[0]:
+                root = root[:-1]
+            n = root + end
+            if any(n[i] == n[i + 1] == n[i + 2] for i in range(len(n) - 2)):
+                continue
+            if n not in used and len(n) <= 11:
+                used.add(n)
+                return n
+        raise RuntimeError(f"ran out of names for {t}")
+
+    for sid in range(1, TOTAL + 1):
+        t = TYPES[(sid - 1) % 5]
+        row = (sid - 1) // 5                 # 0-based row of five, one per type
+        if row < 20:
+            name = NAMES[t][row]             # the hand-written first 100
+            tier = 0 if row < 7 else (1 if row < 14 else 2)
+        else:
+            name = make_name(t)
+            tier = min(4, sid // 250 + 1)    # later species are tougher
+        # The first 100 keep the exact formulas they shipped with, so adding the
+        # rest doesn't quietly rebalance creatures you already know.
+        base = 18 + tier * (14 if row < 20 else 12)
+        spread = lambda lo, hi: rnd.randint(base + lo, base + hi)
+        # Guarantee one damaging move of the species' own type: sampling freely
+        # produced creatures armed with nothing but Harden and Recover.
+        pool = [m for m in MOVES_BY_TYPE[t] if m in VALID and m not in DEFENSIVE]
+        primary = pool[row % len(pool)]
+        others = [m for m in pool if m != primary]
+        moves = [primary] + ([rnd.choice(others)] if others else []) + [rnd.choice(GENERIC)]
+        out.append({
+            'id': sid, 'name': name, 'type': t,
+            'baseHp': spread(4, 18), 'baseAtk': spread(0, 14), 'baseDef': spread(-4, 10),
+            'baseSp': spread(-2, 12), 'baseSpd': spread(-6, 10),
+            'exp': 0, 'expToLevel': 60 + tier * 40 + (row % 20) * 3,
+            'catchRate': (max(20, 210 - tier * 70 - row * 4) if row < 20
+                          else max(15, 210 - tier * 45 - (row % 20) * 3)),
+            'moves': moves,
+        })
 
     lines = ['const CODEMON_SPECIES = [']
     for s in out:
