@@ -27,6 +27,9 @@ const AREAS = [
   }
 ];
 
+const SAVE_KEY = 'codemonSave';
+const SAVE_VERSION = 1;          // bump if the saved shape changes
+
 class CodemonGame {
   constructor() {
     this.player = new Player();
@@ -458,6 +461,53 @@ class CodemonGame {
         }
       }
     }
+  }
+
+  /**
+   * Saved in localStorage under SAVE_KEY. Only what can't be rebuilt is stored:
+   * each creature's species, level, exp and HP (stats and moves come back from
+   * the species), plus gold, items, Pokedex and the current area.
+   */
+  saveGame() {
+    if (!this.player.team.length) return;       // nothing chosen yet
+    const data = {
+      v: SAVE_VERSION,
+      gold: this.player.gold,
+      items: this.player.items,
+      pokedex: [...this.player.pokedex],
+      area: this.currentArea,
+      team: this.player.team.map(c => ({
+        species: c.species.id, level: c.level, exp: c.exp,
+        expToLevel: c.expToLevel, hp: c.currentHp,
+      })),
+    };
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) { /* storage blocked */ }
+  }
+
+  /** Restore a save. Returns false if there's none, or it's unreadable or from an old version. */
+  loadGame() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return false; }
+    if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.team) || !data.team.length) {
+      return false;
+    }
+    const team = data.team.map(t => {
+      const species = CODEMON_SPECIES.find(sp => sp.id === t.species);
+      if (!species) return null;                 // roster changed since the save
+      const c = new Codemon(species, t.level);
+      c.exp = t.exp || 0;
+      c.expToLevel = t.expToLevel || c.expToLevel;
+      c.currentHp = Math.max(0, Math.min(c.hp, t.hp ?? c.hp));
+      return c;
+    }).filter(Boolean);
+    if (!team.length) return false;
+
+    this.player.team = team;
+    this.player.gold = data.gold ?? this.player.gold;
+    Object.assign(this.player.items, data.items || {});
+    this.player.pokedex = new Set(data.pokedex || team.map(c => c.species.id));
+    if (AREAS[data.area]) this.changeArea(data.area);
+    return true;
   }
 
   /**
