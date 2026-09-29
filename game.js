@@ -547,10 +547,13 @@ class CodemonGame {
       const speciesById = (id) => CODEMON_SPECIES.find(sp => sp.id === id);
       const team = data.team.map(t => {
         const species = t && speciesById(t.species);
-        if (!species || !Number.isInteger(t.level) || t.level < 1) return null;
+        if (!species || !Number.isInteger(t.level) || t.level < 1 || t.level > 100) return null;
         const c = new Codemon(species, t.level);
-        if (Number.isFinite(t.exp) && t.exp >= 0) c.exp = t.exp;
-        if (Number.isFinite(t.expToLevel) && t.expToLevel > 0) c.expToLevel = t.expToLevel;
+        // Whole numbers of at least 1, and exp below the next threshold: an
+        // expToLevel under 1 rounds to 0 on level-up, and gainExp's
+        // `while (exp >= expToLevel)` then never ends.
+        if (Number.isInteger(t.expToLevel) && t.expToLevel >= 1) c.expToLevel = t.expToLevel;
+        if (Number.isFinite(t.exp) && t.exp >= 0) c.exp = Math.min(Math.floor(t.exp), c.expToLevel - 1);
         c.currentHp = Number.isFinite(t.hp) ? Math.max(0, Math.min(c.hp, Math.round(t.hp))) : c.hp;
         return c;
       }).filter(Boolean);
