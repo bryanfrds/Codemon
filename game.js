@@ -77,6 +77,10 @@ class CodemonGame {
 
     setInterval(() => this.saveGame(), 15000);
     window.addEventListener('pagehide', () => this.saveGame());
+    // Another tab started a new game: stop this one writing its old team back.
+    window.addEventListener('storage', (e) => {
+      if (e.key === SAVE_KEY && e.newValue === null) this.wiped = true;
+    });
   }
 
   initUI() {
@@ -97,8 +101,13 @@ class CodemonGame {
     const newGameBtn = document.getElementById('newGameBtn');
     newGameBtn.addEventListener('click', () => {
       if (newGameBtn.classList.contains('confirming')) {
+        // Stop everything that could save before the page is replaced: the
+        // reload isn't instant, and autoplay would otherwise pick a starter and
+        // save it with the old gold and items.
+        this.wiped = true;
+        clearInterval(this.autoPlayTimer);
+        this.autoPlay = false;
         try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
-        this.player.team = [];                  // so the pagehide save can't restore it
         location.reload();
         return;
       }
