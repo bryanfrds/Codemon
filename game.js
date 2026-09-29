@@ -125,6 +125,14 @@ class CodemonGame {
   }
 
   startGame() {
+    // A saved run picks up where it left off; only a new one gets the picker.
+    if (this.loadGame()) {
+      this.updateTeamUI();
+      this.updateStats();
+      const lead = this.player.getActiveCodemon();
+      this.setStatus(`Welcome back! ${lead.species.name} is ready to go.`);
+      return;
+    }
     // Default trio; "Show three others" swaps it for a random set.
     this.showStarters([1, 2, 5]);             // Byteling (bug), BitRiot (code), Flowy (flow)
     document.getElementById('rerollStartersBtn').onclick = () => this.rerollStarters();
