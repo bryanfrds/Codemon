@@ -521,30 +521,59 @@ class CodemonGame {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) { /* storage blocked */ }
   }
 
-  /** Restore a save. Returns false if there's none, or it's unreadable or from an old version. */
+  /**
+   * Restore a save. Returns false if there's none, or it's unreadable, from an old
+   * version, or malformed - in which case the game starts fresh.
+   *
+   * Everything is validated because this runs inside the constructor: a throw
+   * here stopped the game loop and timers from ever starting, and the bad save
+   * then broke every later reload the same way.
+   */
   loadGame() {
-    let data;
-    try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return false; }
-    if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.team) || !data.team.length) {
+    try {
+      const data = JSON.parse(localStorage.getItem(SAVE_KEY));
+      if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.team)) return false;
+
+      const speciesById = (id) => CODEMON_SPECIES.find(sp => sp.id === id);
+      const team = data.team.map(t => {
+        const species = t && speciesById(t.species);
+        if (!species || !Number.isInteger(t.level) || t.level < 1) return null;
+        const c = new Codemon(species, t.level);
+        if (Number.isFinite(t.exp) && t.exp >= 0) c.exp = t.exp;
+        if (Number.isFinite(t.expToLevel) && t.expToLevel > 0) c.expToLevel = t.expToLevel;
+        c.currentHp = Number.isFinite(t.hp) ? Math.max(0, Math.min(c.hp, Math.round(t.hp))) : c.hp;
+        return c;
+      }).filter(Boolean);
+      if (!team.length) return false;           // e.g. every species was removed
+
+      let gold = Number.isFinite(data.gold) && data.gold >= 0 ? Math.floor(data.gold) : this.player.gold;
+      // Saved with everyone fainted (older saves could be): treat it as the
+      // blackout it would have been, heal and dock the gold.
+      if (team.every(c => c.currentHp <= 0)) {
+        team.forEach(c => { c.currentHp = c.hp; });
+        gold = Math.floor(gold / 2);
+      }
+
+      this.player.team = team;
+      this.player.gold = gold;
+      // Only item kinds the game knows, and only whole non-negative counts.
+      for (const k of Object.keys(this.player.items)) {
+        const n = data.items && data.items[k];
+        if (Number.isInteger(n) && n >= 0) this.player.items[k] = n;
+      }
+      // Drop Pokedex ids for species that no longer exist; they crashed the
+      // Pokedex screen and inflated the caught count.
+      const dex = Array.isArray(data.pokedex) ? data.pokedex : [];
+      this.player.pokedex = new Set(
+        [...dex, ...team.map(c => c.species.id)].filter(id => speciesById(id)));
+
+      if (Number.isInteger(data.area) && data.area >= 0 && data.area < AREAS.length) {
+        this.changeArea(data.area);
+      }
+      return true;
+    } catch (e) {
       return false;
     }
-    const team = data.team.map(t => {
-      const species = CODEMON_SPECIES.find(sp => sp.id === t.species);
-      if (!species) return null;                 // roster changed since the save
-      const c = new Codemon(species, t.level);
-      c.exp = t.exp || 0;
-      c.expToLevel = t.expToLevel || c.expToLevel;
-      c.currentHp = Math.max(0, Math.min(c.hp, t.hp ?? c.hp));
-      return c;
-    }).filter(Boolean);
-    if (!team.length) return false;
-
-    this.player.team = team;
-    this.player.gold = data.gold ?? this.player.gold;
-    Object.assign(this.player.items, data.items || {});
-    this.player.pokedex = new Set(data.pokedex || team.map(c => c.species.id));
-    if (AREAS[data.area]) this.changeArea(data.area);
-    return true;
   }
 
   /**
