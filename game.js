@@ -454,10 +454,24 @@ class CodemonGame {
           this.updateBattleUI();
         } else {
           this.setStatus('All CodeMons fainted!');
-          setTimeout(() => this.endBattle(), 2000);
+          setTimeout(() => { this.endBattle(); this.blackOut(); }, 2000);
         }
       }
     }
+  }
+
+  /**
+   * Whole team fainted: heal everyone and dock half the gold, like the games this
+   * is modelled on. Without it a wiped team had no way back - nothing outside a
+   * potion restores HP, so every later fight was an instant loss.
+   */
+  blackOut() {
+    this.player.team.forEach(c => { c.currentHp = c.hp; });
+    const lost = Math.floor(this.player.gold / 2);
+    this.player.gold -= lost;
+    this.updateTeamUI();
+    this.updateStats();
+    this.setStatus(`You blacked out and lost ${lost} gold. Your team has been healed.`);
   }
 
   endBattle() {
