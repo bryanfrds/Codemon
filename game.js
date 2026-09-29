@@ -82,6 +82,8 @@ class CodemonGame {
       // e.key is null when the other tab cleared all of localStorage at once.
       if (e.key === null || (e.key === SAVE_KEY && e.newValue === null)) {
         this.wiped = true;
+        // Stop autoplay too: its next status line, 700ms later, hid this one.
+        if (this.autoPlay) this.toggleAutoPlay();
         this.setStatus('New game started in another tab. This tab will no longer save.');
       }
     });
