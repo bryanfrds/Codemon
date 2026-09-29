@@ -27,6 +27,9 @@ const AREAS = [
   }
 ];
 
+const SAVE_KEY = 'codemonSave';
+const SAVE_VERSION = 1;          // bump if the saved shape changes
+
 class CodemonGame {
   constructor() {
     this.player = new Player();
@@ -71,6 +74,16 @@ class CodemonGame {
     this.initUI();
     this.startGame();
     this.gameLoop();
+
+    setInterval(() => this.saveGame(), 15000);
+    window.addEventListener('pagehide', () => this.saveGame());
+    // Another tab started a new game: stop this one writing its old team back.
+    window.addEventListener('storage', (e) => {
+      if (e.key === SAVE_KEY && e.newValue === null) {
+        this.wiped = true;
+        this.setStatus('New game started in another tab. This tab will no longer save.');
+      }
+    });
   }
 
   initUI() {
@@ -85,6 +98,29 @@ class CodemonGame {
     document.getElementById('moveLeftBtn').addEventListener('click', () => this.movePlayer(-20, 0));
     document.getElementById('moveRightBtn').addEventListener('click', () => this.movePlayer(20, 0));
     document.getElementById('interactBtn').addEventListener('click', () => this.forceEncounter());
+
+    // New game wipes the save, so it takes two clicks within 3 seconds. A
+    // browser confirm() dialog would block the whole page instead.
+    const newGameBtn = document.getElementById('newGameBtn');
+    newGameBtn.addEventListener('click', () => {
+      if (newGameBtn.classList.contains('confirming')) {
+        // Stop everything that could save before the page is replaced: the
+        // reload isn't instant, and autoplay would otherwise pick a starter and
+        // save it with the old gold and items.
+        this.wiped = true;
+        clearInterval(this.autoPlayTimer);
+        this.autoPlay = false;
+        try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
+        location.reload();
+        return;
+      }
+      newGameBtn.classList.add('confirming');
+      newGameBtn.textContent = 'Click again to wipe your save';
+      setTimeout(() => {
+        newGameBtn.classList.remove('confirming');
+        newGameBtn.textContent = '↺ New game';
+      }, 3000);
+    });
 
     // Arrow keys / WASD. Held keys are stepped in the game loop, not on keydown,
     // so holding one walks at a steady pace instead of the OS key-repeat rate.
@@ -122,6 +158,17 @@ class CodemonGame {
   }
 
   startGame() {
+    // A saved run picks up where it left off; only a new one gets the picker.
+    if (this.loadGame()) {
+      this.updateTeamUI();
+      this.updateStats();
+      // Name someone who can actually fight; the lead may have fainted.
+      const ready = this.player.team.find(c => c.currentHp > 0) || this.player.team[0];
+      this.setStatus(this.loadedFromBlackout
+        ? 'Welcome back. Your team had fainted, so you blacked out: healed, half your gold lost.'
+        : `Welcome back! ${ready.species.name} is ready to go.`);
+      return;
+    }
     // Default trio; "Show three others" swaps it for a random set.
     this.showStarters([1, 2, 5]);             // Byteling (bug), BitRiot (code), Flowy (flow)
     document.getElementById('rerollStartersBtn').onclick = () => this.rerollStarters();
@@ -175,6 +222,7 @@ class CodemonGame {
     this.updateTeamUI();
     this.updateStats();
     this.setStatus(`You chose ${species.name}! Press ENCOUNTER to find wild CodeMons.`);
+    this.saveGame();
   }
 
   // View Management
@@ -214,6 +262,7 @@ class CodemonGame {
 
     this.playerPos = { x: 250, y: 200 };
     this.playerTarget = { x: 250, y: 200 };  // or it glides back to the old spot
+    this.saveGame();
     this.setStatus(`Entered ${area.name}.`);
   }
 
@@ -461,6 +510,93 @@ class CodemonGame {
   }
 
   /**
+   * Saved in localStorage under SAVE_KEY. Only what can't be rebuilt is stored:
+   * each creature's species, level, exp and HP (stats and moves come back from
+   * the species), plus gold, items, Pokedex and the current area.
+   */
+  saveGame() {
+    if (!this.player.team.length) return;       // nothing chosen yet
+    // Never mid-fight. A save in the 2 s between the last faint and the blackout
+    // stored an all-fainted team and dodged the gold penalty. Every checkpoint
+    // save runs after endBattle clears this.battle, so none are lost. (Reloading
+    // mid-fight still rewinds to the last save; the README says so.)
+    if (this.battle) return;
+    if (this.wiped) return;                     // New game is in progress
+    const data = {
+      v: SAVE_VERSION,
+      gold: this.player.gold,
+      items: this.player.items,
+      pokedex: [...this.player.pokedex],
+      area: this.currentArea,
+      team: this.player.team.map(c => ({
+        species: c.species.id, level: c.level, exp: c.exp,
+        expToLevel: c.expToLevel, hp: c.currentHp,
+      })),
+    };
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) { /* storage blocked */ }
+  }
+
+  /**
+   * Restore a save. Returns false if there's none, or it's unreadable, from an old
+   * version, or malformed - in which case the game starts fresh.
+   *
+   * Everything is validated because this runs inside the constructor: a throw
+   * here stopped the game loop and timers from ever starting, and the bad save
+   * then broke every later reload the same way.
+   */
+  loadGame() {
+    try {
+      const data = JSON.parse(localStorage.getItem(SAVE_KEY));
+      if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.team)) return false;
+
+      const speciesById = (id) => CODEMON_SPECIES.find(sp => sp.id === id);
+      const team = data.team.map(t => {
+        const species = t && speciesById(t.species);
+        if (!species || !Number.isInteger(t.level) || t.level < 1 || t.level > 100) return null;
+        const c = new Codemon(species, t.level);
+        // Whole numbers of at least 1, and exp below the next threshold: an
+        // expToLevel under 1 rounds to 0 on level-up, and gainExp's
+        // `while (exp >= expToLevel)` then never ends.
+        if (Number.isInteger(t.expToLevel) && t.expToLevel >= 1) c.expToLevel = t.expToLevel;
+        if (Number.isFinite(t.exp) && t.exp >= 0) c.exp = Math.min(Math.floor(t.exp), c.expToLevel - 1);
+        c.currentHp = Number.isFinite(t.hp) ? Math.max(0, Math.min(c.hp, Math.round(t.hp))) : c.hp;
+        return c;
+      }).filter(Boolean);
+      if (!team.length) return false;           // e.g. every species was removed
+
+      let gold = Number.isFinite(data.gold) && data.gold >= 0 ? Math.floor(data.gold) : this.player.gold;
+      // Saved with everyone fainted (older saves could be): treat it as the
+      // blackout it would have been, heal and dock the gold.
+      this.loadedFromBlackout = false;
+      if (team.every(c => c.currentHp <= 0)) {
+        team.forEach(c => { c.currentHp = c.hp; });
+        gold = Math.floor(gold / 2);
+        this.loadedFromBlackout = true;
+      }
+
+      this.player.team = team;
+      this.player.gold = gold;
+      // Only item kinds the game knows, and only whole non-negative counts.
+      for (const k of Object.keys(this.player.items)) {
+        const n = data.items && data.items[k];
+        if (Number.isInteger(n) && n >= 0) this.player.items[k] = n;
+      }
+      // Drop Pokedex ids for species that no longer exist; they crashed the
+      // Pokedex screen and inflated the caught count.
+      const dex = Array.isArray(data.pokedex) ? data.pokedex : [];
+      this.player.pokedex = new Set(
+        [...dex, ...team.map(c => c.species.id)].filter(id => speciesById(id)));
+
+      if (Number.isInteger(data.area) && data.area >= 0 && data.area < AREAS.length) {
+        this.changeArea(data.area);
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
    * Whole team fainted: heal everyone and dock half the gold, like the games this
    * is modelled on. Without it a wiped team had no way back - nothing outside a
    * potion restores HP, so every later fight was an instant loss.
@@ -472,6 +608,7 @@ class CodemonGame {
     this.updateTeamUI();
     this.updateStats();
     this.setStatus(`You blacked out and lost ${lost} gold. Your team has been healed.`);
+    this.saveGame();
   }
 
   endBattle() {
@@ -480,6 +617,7 @@ class CodemonGame {
     this.updateStats();
     this.switchView('exploration');
     this.setStatus('Battle ended.');
+    this.saveGame();
   }
 
   // UI Updates

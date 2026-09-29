@@ -726,3 +726,7 @@ body {
 .starter-moves { font-size: 0.7rem; opacity: 0.6; text-align: center; }
 
 .starter-reroll { margin-top: 14px; }
+
+/* New game sits with the nav buttons but reads as a destructive action. */
+.new-game-btn { margin-top: 10px; opacity: 0.75; }
+.new-game-btn.confirming { opacity: 1; border-color: #f87171; color: #f87171; }
