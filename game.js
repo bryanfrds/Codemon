@@ -159,8 +159,9 @@ class CodemonGame {
     if (this.loadGame()) {
       this.updateTeamUI();
       this.updateStats();
-      const lead = this.player.getActiveCodemon();
-      this.setStatus(`Welcome back! ${lead.species.name} is ready to go.`);
+      // Name someone who can actually fight; the lead may have fainted.
+      const ready = this.player.team.find(c => c.currentHp > 0) || this.player.team[0];
+      this.setStatus(`Welcome back! ${ready.species.name} is ready to go.`);
       return;
     }
     // Default trio; "Show three others" swaps it for a random set.
