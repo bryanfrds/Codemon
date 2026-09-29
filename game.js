@@ -33,7 +33,8 @@ class CodemonGame {
     this.battle = null;
     this.currentView = 'exploration';
     this.currentArea = 0;
-    this.playerPos = { x: 250, y: 200 };
+    this.playerPos = { x: 250, y: 200 };      // where the sprite is drawn
+    this.playerTarget = { x: 250, y: 200 };   // where it's walking to
     this.encounterChance = 0.05;
     this.autoPlay = false;        // the 🤖 AUTOPLAY button drives this
     // Battle effects: the move being animated, loose particles and floating
@@ -193,13 +194,16 @@ class CodemonGame {
     });
 
     this.playerPos = { x: 250, y: 200 };
+    this.playerTarget = { x: 250, y: 200 };  // or it glides back to the old spot
     this.setStatus(`Entered ${area.name}.`);
   }
 
   // Movement
   movePlayer(dx, dy) {
-    this.playerPos.x = Math.max(20, Math.min(480, this.playerPos.x + dx));
-    this.playerPos.y = Math.max(20, Math.min(380, this.playerPos.y + dy));
+    // Moves the target; the sprite glides there in renderExploration. Setting the
+    // drawn position directly made every step a 20px teleport.
+    this.playerTarget.x = Math.max(20, Math.min(480, this.playerTarget.x + dx));
+    this.playerTarget.y = Math.max(20, Math.min(380, this.playerTarget.y + dy));
 
     // Random encounter
     if (Math.random() < this.encounterChance) {
@@ -640,6 +644,11 @@ class CodemonGame {
       this.explorationCtx.lineTo(this.explorationCanvas.width, y);
       this.explorationCtx.stroke();
     }
+
+    // Glide toward the target: a fixed fraction of the remaining distance per
+    // frame, so it eases in and settles instead of snapping.
+    this.playerPos.x += (this.playerTarget.x - this.playerPos.x) * 0.22;
+    this.playerPos.y += (this.playerTarget.y - this.playerPos.y) * 0.22;
 
     // Player: the lead CodeMon's sprite, so you can see who you're walking around
     // with instead of an anonymous dot.
