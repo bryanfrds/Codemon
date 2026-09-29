@@ -47,7 +47,7 @@ python3 scripts/serve.py 8777
 # then visit http://127.0.0.1:8777
 ```
 
-Progress saves automatically in your browser, so a reload picks up where you left off. **New game** in the navigation panel wipes it (click twice).
+Progress saves automatically in your browser, after each battle, when you change area, and every 15 seconds. A reload picks up from the last save, though a fight in progress is lost. **New game** in the navigation panel wipes it (click twice).
 
 ---
 
