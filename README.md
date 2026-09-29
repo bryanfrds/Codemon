@@ -10,9 +10,9 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 
 ## 🎮 Features
 
-- 🥚 **Three starters** — Byteling (bug), BitRiot (code) or Flowy (flow).
-- 🐾 **1,000 CodeMon** to catch, each with its own sprite, type, stats and moves.
-- 🗺️ **Four areas**, each with its own backdrop and pool of wild CodeMon, tougher the further in you go:
+- **Three starters** — Byteling (bug), BitRiot (code) or Flowy (flow).
+- **1,000 CodeMon** to catch, each with its own sprite, type, stats and moves.
+- **Four areas**, each with its own backdrop and pool of wild CodeMon, tougher the further in you go:
 
   | Area | CodeMon |
   |---|---|
@@ -21,11 +21,11 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
   | Memory Leak Lake | #501–780 |
   | Debug Canyon | #741–1000 |
 
-- ⚔️ **Animated battles** — attacks lunge, hits flash and shake with sparks in the move's type colour, damage numbers float up, and HP bars drop when the hit lands.
-- 🔴 **Catching** with Pokéballs and Great Balls; weaken a CodeMon first for better odds.
-- 🧪 **Items** — potions to heal mid-fight.
-- 🤖 **Autoplay** — explores, fights, heals and catches on its own.
-- 📖 **Pokédex** of everything you've caught.
+- **Animated battles** — attacks lunge, hits flash and shake with sparks in the move's type colour, damage numbers float up, and HP bars drop when the hit lands.
+- **Catching** with Pokéballs and Great Balls; weaken a CodeMon first for better odds.
+- **Items** — potions to heal mid-fight.
+- **Autoplay** — explores, fights, heals and catches on its own.
+- **Pokédex** of everything you've caught.
 
 Five types: **bug**, **code**, **memory**, **logic** and **flow**.
 
