@@ -512,9 +512,9 @@ class CodemonGame {
   saveGame() {
     if (!this.player.team.length) return;       // nothing chosen yet
     // Never mid-fight. A save in the 2 s between the last faint and the blackout
-    // stored an all-fainted team and dodged the gold penalty; reloading mid-battle
-    // was also a free escape. Every checkpoint save runs after endBattle clears
-    // this.battle, so none are lost.
+    // stored an all-fainted team and dodged the gold penalty. Every checkpoint
+    // save runs after endBattle clears this.battle, so none are lost. (Reloading
+    // mid-fight still rewinds to the last save; the README says so.)
     if (this.battle) return;
     if (this.wiped) return;                     // New game is in progress
     const data = {
