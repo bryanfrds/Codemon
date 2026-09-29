@@ -79,7 +79,8 @@ class CodemonGame {
     window.addEventListener('pagehide', () => this.saveGame());
     // Another tab started a new game: stop this one writing its old team back.
     window.addEventListener('storage', (e) => {
-      if (e.key === SAVE_KEY && e.newValue === null) {
+      // e.key is null when the other tab cleared all of localStorage at once.
+      if (e.key === null || (e.key === SAVE_KEY && e.newValue === null)) {
         this.wiped = true;
         this.setStatus('New game started in another tab. This tab will no longer save.');
       }
