@@ -164,7 +164,9 @@ class CodemonGame {
       this.updateStats();
       // Name someone who can actually fight; the lead may have fainted.
       const ready = this.player.team.find(c => c.currentHp > 0) || this.player.team[0];
-      this.setStatus(`Welcome back! ${ready.species.name} is ready to go.`);
+      this.setStatus(this.loadedFromBlackout
+        ? 'Welcome back. Your team had fainted, so you blacked out: healed, half your gold lost.'
+        : `Welcome back! ${ready.species.name} is ready to go.`);
       return;
     }
     // Default trio; "Show three others" swaps it for a random set.
@@ -565,9 +567,11 @@ class CodemonGame {
       let gold = Number.isFinite(data.gold) && data.gold >= 0 ? Math.floor(data.gold) : this.player.gold;
       // Saved with everyone fainted (older saves could be): treat it as the
       // blackout it would have been, heal and dock the gold.
+      this.loadedFromBlackout = false;
       if (team.every(c => c.currentHp <= 0)) {
         team.forEach(c => { c.currentHp = c.hp; });
         gold = Math.floor(gold / 2);
+        this.loadedFromBlackout = true;
       }
 
       this.player.team = team;
