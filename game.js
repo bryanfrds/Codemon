@@ -629,10 +629,20 @@ class CodemonGame {
       this.startEncounter();
       return;
     }
+    // Wander in straight runs of a few steps, turning at walls, rather than
+    // picking a fresh direction every step - that just jittered on the spot.
     const step = 20;
     const dirs = [[0, -step], [0, step], [-step, 0], [step, 0]];
-    const [dx, dy] = dirs[Math.floor(Math.random() * dirs.length)];
-    this.movePlayer(dx, dy);
+    const t = this.playerTarget;
+    const blocked = (d) => (t.x + d[0] < 20 || t.x + d[0] > 480 ||
+                            t.y + d[1] < 20 || t.y + d[1] > 380);
+    if (!this.wanderDir || !this.wanderLeft || blocked(this.wanderDir)) {
+      const open = dirs.filter(d => !blocked(d));
+      this.wanderDir = open[Math.floor(Math.random() * open.length)];
+      this.wanderLeft = 3 + Math.floor(Math.random() * 5);
+    }
+    this.wanderLeft--;
+    this.movePlayer(this.wanderDir[0], this.wanderDir[1]);
   }
 
   /** Walking only makes sense on the map, with no fight or dialog open. */
