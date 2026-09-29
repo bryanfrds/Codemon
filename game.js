@@ -92,6 +92,24 @@ class CodemonGame {
     document.getElementById('moveRightBtn').addEventListener('click', () => this.movePlayer(20, 0));
     document.getElementById('interactBtn').addEventListener('click', () => this.forceEncounter());
 
+    // New game wipes the save, so it takes two clicks within 3 seconds. A
+    // browser confirm() dialog would block the whole page instead.
+    const newGameBtn = document.getElementById('newGameBtn');
+    newGameBtn.addEventListener('click', () => {
+      if (newGameBtn.classList.contains('confirming')) {
+        try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
+        this.player.team = [];                  // so the pagehide save can't restore it
+        location.reload();
+        return;
+      }
+      newGameBtn.classList.add('confirming');
+      newGameBtn.textContent = 'Click again to wipe your save';
+      setTimeout(() => {
+        newGameBtn.classList.remove('confirming');
+        newGameBtn.textContent = '↺ New game';
+      }, 3000);
+    });
+
     // Arrow keys / WASD. Held keys are stepped in the game loop, not on keydown,
     // so holding one walks at a steady pace instead of the OS key-repeat rate.
     const MOVE_KEYS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0],
