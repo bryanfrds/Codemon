@@ -554,10 +554,11 @@ class CodemonGame {
         const species = t && speciesById(t.species);
         if (!species || !Number.isInteger(t.level) || t.level < 1 || t.level > 100) return null;
         const c = new Codemon(species, t.level);
-        // Whole numbers of at least 1, and exp below the next threshold: an
-        // expToLevel under 1 rounds to 0 on level-up, and gainExp's
-        // `while (exp >= expToLevel)` then never ends.
-        if (Number.isInteger(t.expToLevel) && t.expToLevel >= 1) c.expToLevel = t.expToLevel;
+        // Never below the species' starting threshold, which only grows with
+        // levels, and exp below it. A tiny expToLevel either looped gainExp's
+        // `while (exp >= expToLevel)` forever or shot one win up hundreds of
+        // levels, past the level check above, so the next load dropped the team.
+        if (Number.isInteger(t.expToLevel) && t.expToLevel >= c.expToLevel) c.expToLevel = t.expToLevel;
         if (Number.isFinite(t.exp) && t.exp >= 0) c.exp = Math.min(Math.floor(t.exp), c.expToLevel - 1);
         c.currentHp = Number.isFinite(t.hp) ? Math.max(0, Math.min(c.hp, Math.round(t.hp))) : c.hp;
         return c;
