@@ -36,6 +36,8 @@ class CodemonGame {
     this.playerPos = { x: 250, y: 200 };      // where the sprite is drawn
     this.playerTarget = { x: 250, y: 200 };   // where it's walking to
     this.facing = 1;                          // 1 = right, -1 = left
+    this.heldKeys = new Set();                // movement keys currently down
+    this.lastKeyStep = 0;
     this.encounterChance = 0.05;
     this.autoPlay = false;        // the 🤖 AUTOPLAY button drives this
     // Battle effects: the move being animated, loose particles and floating
@@ -83,6 +85,22 @@ class CodemonGame {
     document.getElementById('moveLeftBtn').addEventListener('click', () => this.movePlayer(-20, 0));
     document.getElementById('moveRightBtn').addEventListener('click', () => this.movePlayer(20, 0));
     document.getElementById('interactBtn').addEventListener('click', () => this.forceEncounter());
+
+    // Arrow keys / WASD. Held keys are stepped in the game loop, not on keydown,
+    // so holding one walks at a steady pace instead of the OS key-repeat rate.
+    const MOVE_KEYS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0],
+                        ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
+    this.moveKeys = MOVE_KEYS;
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (!MOVE_KEYS[k] || !this.canWalk()) return;
+      e.preventDefault();                     // arrows would scroll the page
+      this.heldKeys.add(k);
+    });
+    window.addEventListener('keyup', (e) => {
+      this.heldKeys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+    });
+    window.addEventListener('blur', () => this.heldKeys.clear());
     document.getElementById('autoPlayBtn').addEventListener('click', () => this.toggleAutoPlay());
 
     // Battle actions
@@ -617,7 +635,22 @@ class CodemonGame {
     this.movePlayer(dx, dy);
   }
 
+  /** Walking only makes sense on the map, with no fight or dialog open. */
+  canWalk() {
+    return this.currentView === 'exploration' && !this.battle &&
+           !document.querySelector('.modal:not(.hidden)') && this.player.team.length > 0;
+  }
+
   gameLoop() {
+    // One step per 110 ms while a movement key is held.
+    const now = performance.now();
+    if (this.heldKeys.size && this.canWalk() && now - this.lastKeyStep > 110) {
+      this.lastKeyStep = now;
+      let dx = 0, dy = 0;
+      this.heldKeys.forEach(k => { dx += this.moveKeys[k][0]; dy += this.moveKeys[k][1]; });
+      if (dx || dy) this.movePlayer(Math.sign(dx) * 20, Math.sign(dy) * 20);
+    }
+    if (!this.canWalk()) this.heldKeys.clear();   // a fight started mid-walk
     this.renderExploration();
     this.renderBattle();
     requestAnimationFrame(() => this.gameLoop());
