@@ -102,12 +102,38 @@ class CodemonGame {
   }
 
   startGame() {
-    // Three starters to pick from, one each of three types, like the games it's
-    // modelled on. Species ids from the hand-named first row of the roster.
-    const STARTER_IDS = [1, 2, 5];            // Byteling (bug), BitRiot (code), Flowy (flow)
+    // Default trio; "Show three others" swaps it for a random set.
+    this.showStarters([1, 2, 5]);             // Byteling (bug), BitRiot (code), Flowy (flow)
+    document.getElementById('rerollStartersBtn').onclick = () => this.rerollStarters();
+    document.getElementById('starterModal').classList.remove('hidden');
+
+    this.updateTeamUI();
+    this.updateStats();
+    this.setStatus('Choose your starter CodeMon to begin.');
+  }
+
+  /**
+   * Three new options from the hand-named first 100, each a different type, and
+   * never the same three as on screen now.
+   */
+  rerollStarters() {
+    const current = new Set(this.starterIds || []);
+    const pool = CODEMON_SPECIES.filter(s => s.id <= 100 && !current.has(s.id));
+    const picked = [];
+    const types = new Set();
+    for (const s of pool.sort(() => Math.random() - 0.5)) {
+      if (types.has(s.type)) continue;
+      picked.push(s.id); types.add(s.type);
+      if (picked.length === 3) break;
+    }
+    this.showStarters(picked);
+  }
+
+  showStarters(ids) {
+    this.starterIds = ids;
     const box = document.getElementById('starterChoices');
     box.innerHTML = '';
-    STARTER_IDS.forEach(id => {
+    ids.forEach(id => {
       const species = CODEMON_SPECIES.find(s => s.id === id);
       const card = document.createElement('button');
       card.className = 'starter-card';
@@ -120,11 +146,6 @@ class CodemonGame {
       card.addEventListener('click', () => this.chooseStarter(species));
       box.appendChild(card);
     });
-    document.getElementById('starterModal').classList.remove('hidden');
-
-    this.updateTeamUI();
-    this.updateStats();
-    this.setStatus('Choose your starter CodeMon to begin.');
   }
 
   chooseStarter(species) {
