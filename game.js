@@ -79,8 +79,11 @@ class CodemonGame {
     window.addEventListener('pagehide', () => this.saveGame());
     // Another tab started a new game: stop this one writing its old team back.
     window.addEventListener('storage', (e) => {
-      if (e.key === SAVE_KEY && e.newValue === null) {
+      // e.key is null when the other tab cleared all of localStorage at once.
+      if (e.key === null || (e.key === SAVE_KEY && e.newValue === null)) {
         this.wiped = true;
+        // Stop autoplay too: its next status line, 700ms later, hid this one.
+        if (this.autoPlay) this.toggleAutoPlay();
         this.setStatus('New game started in another tab. This tab will no longer save.');
       }
     });
@@ -162,11 +165,9 @@ class CodemonGame {
     if (this.loadGame()) {
       this.updateTeamUI();
       this.updateStats();
-      // Name someone who can actually fight; the lead may have fainted.
-      const ready = this.player.team.find(c => c.currentHp > 0) || this.player.team[0];
       this.setStatus(this.loadedFromBlackout
         ? 'Welcome back. Your team had fainted, so you blacked out: healed, half your gold lost.'
-        : `Welcome back! ${ready.species.name} is ready to go.`);
+        : `Welcome back! ${this.player.team[0].species.name} is ready to go.`);
       return;
     }
     // Default trio; "Show three others" swaps it for a random set.
@@ -554,10 +555,11 @@ class CodemonGame {
         const species = t && speciesById(t.species);
         if (!species || !Number.isInteger(t.level) || t.level < 1 || t.level > 100) return null;
         const c = new Codemon(species, t.level);
-        // Whole numbers of at least 1, and exp below the next threshold: an
-        // expToLevel under 1 rounds to 0 on level-up, and gainExp's
-        // `while (exp >= expToLevel)` then never ends.
-        if (Number.isInteger(t.expToLevel) && t.expToLevel >= 1) c.expToLevel = t.expToLevel;
+        // Never below the species' starting threshold, which only grows with
+        // levels, and exp below it. A tiny expToLevel either looped gainExp's
+        // `while (exp >= expToLevel)` forever or shot one win up hundreds of
+        // levels, past the level check above, so the next load dropped the team.
+        if (Number.isInteger(t.expToLevel) && t.expToLevel >= c.expToLevel) c.expToLevel = t.expToLevel;
         if (Number.isFinite(t.exp) && t.exp >= 0) c.exp = Math.min(Math.floor(t.exp), c.expToLevel - 1);
         c.currentHp = Number.isFinite(t.hp) ? Math.max(0, Math.min(c.hp, Math.round(t.hp))) : c.hp;
         return c;
@@ -573,6 +575,10 @@ class CodemonGame {
         gold = Math.floor(gold / 2);
         this.loadedFromBlackout = true;
       }
+
+      // Battles send out team[0], so lead with someone who can fight.
+      const firstReady = team.findIndex(c => c.currentHp > 0);
+      if (firstReady > 0) team.unshift(...team.splice(firstReady, 1));
 
       this.player.team = team;
       this.player.gold = gold;
