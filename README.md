@@ -26,6 +26,7 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 - **Items** — potions to heal mid-fight.
 - **Autoplay** — explores, fights, heals and catches on its own.
 - **Pokédex** of everything you've caught.
+- **Auto-save** in your browser, with a New game button to start over.
 
 Five types: **bug**, **code**, **memory**, **logic** and **flow**.
 
@@ -46,7 +47,7 @@ python3 scripts/serve.py 8777
 # then visit http://127.0.0.1:8777
 ```
 
-There's no save — each reload is a fresh run.
+Progress saves automatically in your browser, so a reload picks up where you left off. **New game** in the navigation panel wipes it (click twice).
 
 ---
 
