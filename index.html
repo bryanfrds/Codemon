@@ -27,7 +27,7 @@
         </div>
         <div class="stat-badge">
           <span class="label">CAUGHT</span>
-          <span id="caughtCount" class="value">0/5</span>
+          <span id="caughtCount" class="value">0/100</span>
         </div>
         <div class="stat-badge">
           <span class="label">💰 GOLD</span>
@@ -75,7 +75,7 @@
           <!-- Exploration / Battle View -->
           <div id="explorationView" class="view-section">
             <div class="exploration-header">
-              <h2 id="areaName">Route 404: ERROR ZONE</h2>
+              <h2 id="areaName">Null Pointer Meadow</h2>
               <p id="areaDesc">Wild CodeMons appear here!</p>
             </div>
             <canvas id="explorationCanvas" width="500" height="400" class="game-canvas"></canvas>
@@ -87,6 +87,7 @@
                 <button id="moveRightBtn" class="direction-btn">▶</button>
               </div>
               <button id="interactBtn" class="btn btn-primary">⚔️ ENCOUNTER</button>
+              <button id="autoPlayBtn" class="btn">🤖 AUTOPLAY: OFF</button>
             </div>
           </div>
 
@@ -100,7 +101,7 @@
                   <span id="enemyHpText" class="hp-text">HP: 30/30</span>
                 </div>
               </div>
-              <canvas id="battleCanvas" width="500" height="300" class="game-canvas"></canvas>
+              <canvas id="battleCanvas" width="500" height="440" class="game-canvas"></canvas>
               <div class="battle-trainer-info">
                 <span id="allyName" class="ally-name">Your CodeMon</span>
                 <div class="hp-bar-battle">
@@ -156,7 +157,7 @@
           <h2>AREAS</h2>
         </div>
         <div class="area-list">
-          <button class="area-btn active" data-area="0">Route 404</button>
+          <button class="area-btn active" data-area="0">Null Pointer</button>
           <button class="area-btn" data-area="1">Stack Overflow</button>
           <button class="area-btn" data-area="2">Memory Leak Lake</button>
           <button class="area-btn" data-area="3">Debug Canyon</button>
@@ -185,8 +186,9 @@
     </div>
   </div>
 
-  <script src="creatures.js"></script>
-  <script src="battle.js"></script>
-  <script src="game.js"></script>
+  <script src="sprites.js?v=1790663950"></script>
+  <script src="creatures.js?v=1790663950"></script>
+  <script src="battle.js?v=1790663950"></script>
+  <script src="game.js?v=1790663950"></script>
 </body>
 </html>

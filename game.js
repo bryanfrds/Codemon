@@ -2,24 +2,28 @@
 
 const AREAS = [
   {
-    name: 'Route 404: ERROR ZONE',
-    desc: 'A zone where lost data roams freely.',
-    possibleEncounters: [1, 2, 3]
+    name: 'Null Pointer Meadow',
+    bg: 'forest.png',
+    desc: 'Where lost data roams freely.',
+    possibleEncounters: Array.from({ length: 25 }, (_, i) => i + 1)
   },
   {
     name: 'Stack Overflow Hills',
+    bg: 'hills.png',
     desc: 'Infinitely recursive terrain. Tread carefully.',
-    possibleEncounters: [2, 4, 5]
+    possibleEncounters: Array.from({ length: 25 }, (_, i) => i + 21)
   },
   {
     name: 'Memory Leak Lake',
+    bg: 'lake.png',
     desc: 'Haunted by creatures that never release resources.',
-    possibleEncounters: [3, 4, 5]
+    possibleEncounters: Array.from({ length: 30 }, (_, i) => i + 41)
   },
   {
     name: 'Debug Canyon',
+    bg: 'canyon.png',
     desc: 'Where broken logic comes to rest.',
-    possibleEncounters: [2, 3, 4]
+    possibleEncounters: Array.from({ length: 30 }, (_, i) => i + 71)
   }
 ];
 
@@ -31,12 +35,21 @@ class CodemonGame {
     this.currentArea = 0;
     this.playerPos = { x: 250, y: 200 };
     this.encounterChance = 0.05;
+    this.autoPlay = false;        // the 🤖 AUTOPLAY button drives this
+    this.autoPlayTimer = null;
 
     // Canvas
     this.explorationCanvas = document.getElementById('explorationCanvas');
     this.battleCanvas = document.getElementById('battleCanvas');
     this.explorationCtx = this.explorationCanvas.getContext('2d');
     this.battleCtx = this.battleCanvas.getContext('2d');
+
+    // Backdrop for both canvases. Decoded once; until it's ready the draws below
+    // fall back to the flat colour, so nothing flickers on first paint.
+    // One image per area, loaded on first use and kept. An area whose file is
+    // missing falls back to the forest rather than drawing nothing.
+    this.backdrops = new Map();
+    this.backdropFallback = this.loadBackdrop('forest.png');
 
     // UI Elements
     this.explorationView = document.getElementById('explorationView');
@@ -65,6 +78,7 @@ class CodemonGame {
     document.getElementById('moveLeftBtn').addEventListener('click', () => this.movePlayer(-20, 0));
     document.getElementById('moveRightBtn').addEventListener('click', () => this.movePlayer(20, 0));
     document.getElementById('interactBtn').addEventListener('click', () => this.forceEncounter());
+    document.getElementById('autoPlayBtn').addEventListener('click', () => this.toggleAutoPlay());
 
     // Battle actions
     document.getElementById('moveSelectBtn').addEventListener('click', () => this.showMoveSelect());
@@ -111,6 +125,11 @@ class CodemonGame {
     } else if (view === 'team') {
       this.battleView.classList.remove('hidden');
       document.getElementById('navTeam').classList.add('active');
+    } else if (view === 'battle') {
+      // startEncounter() asks for this view. Without a branch here, the line above
+      // hides every section and nothing is shown again, so the screen goes blank
+      // the moment a wild CodeMon appears.
+      this.battleView.classList.remove('hidden');
     }
   }
 
@@ -280,7 +299,7 @@ class CodemonGame {
 
     info.innerHTML = `
       <div class="catch-creature-info">
-        <div class="catch-icon">${enemy.species.icon}</div>
+        <div class="catch-icon">${SPRITES.imgFor(enemy.species, 56)}</div>
         <div class="catch-stats">
           <div class="catch-stat"><strong class="catch-stat-value">${enemy.species.name}</strong></div>
           <div class="catch-stat">Level: <strong class="catch-stat-value">${enemy.level}</strong></div>
@@ -327,7 +346,11 @@ class CodemonGame {
   checkBattleStatus() {
     if (this.battle.battleOver) {
       if (this.battle.playerWon) {
-        const exp = Math.floor(this.battle.enemyCodemon.exp * 1.5);
+        // enemyCodemon.exp is the enemy's *earned* exp, which is always 0 for a
+        // freshly spawned wild CodeMon — so every win awarded 0 and nothing ever
+        // levelled up. Award based on what the enemy was worth instead.
+        const enemy = this.battle.enemyCodemon;
+        const exp = Math.max(1, Math.floor(enemy.level * 8 + enemy.species.baseHp * 0.5));
         this.battle.playerCodemon.gainExp(exp);
         this.player.addGold(50);
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
@@ -371,7 +394,7 @@ class CodemonGame {
       const slot = document.createElement('div');
       slot.className = `team-slot ${idx === 0 ? 'active' : ''}`;
       slot.innerHTML = `
-        <div class="creature-avatar">${codemon.species.icon}</div>
+        <div class="creature-avatar">${SPRITES.imgFor(codemon.species, 32)}</div>
         <div class="creature-info">
           <div class="creature-name">${codemon.species.name}</div>
           <div class="creature-level">Lvl ${codemon.level} | HP: ${codemon.currentHp}/${codemon.hp}</div>
@@ -394,7 +417,7 @@ class CodemonGame {
       const entry = document.createElement('div');
       entry.className = 'pokedex-entry';
       entry.innerHTML = `
-        <div class="pokedex-icon">${species.icon}</div>
+        <div class="pokedex-icon">${SPRITES.imgFor(species, 48)}</div>
         <div class="pokedex-name">#${species.id} ${species.name}</div>
         <div class="pokedex-type">${species.type}</div>
       `;
@@ -415,7 +438,121 @@ class CodemonGame {
     this.statusText.textContent = message;
   }
 
+  loadBackdrop(file) {
+    if (this.backdrops.has(file)) return this.backdrops.get(file);
+    const img = new Image();
+    img.src = 'assets/bg/' + file;
+    img.addEventListener('error', () => { img.failed = true; });
+    this.backdrops.set(file, img);
+    return img;
+  }
+
+  /** The backdrop for the area you're standing in. */
+  currentBackdrop() {
+    const area = AREAS[this.currentArea];
+    const img = this.loadBackdrop((area && area.bg) || 'forest.png');
+    if (img.failed || (!img.complete && !img.naturalWidth)) {
+      return this.backdropFallback.complete ? this.backdropFallback : null;
+    }
+    return img;
+  }
+
+  /** Draw the area's backdrop to fill `ctx`, cropping rather than squashing. */
+  drawBackdrop(ctx, canvas, fallback) {
+    const img = this.currentBackdrop();
+    if (!img || !img.complete || !img.naturalWidth) {
+      ctx.fillStyle = fallback;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+    // Cover-fit: scale to the larger ratio and centre, so the art keeps its
+    // proportions and the canvas never shows a gap.
+    const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    ctx.imageSmoothingEnabled = false;          // it's pixel art, keep it sharp
+    ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+  }
+
   // Rendering
+  toggleAutoPlay() {
+    this.autoPlay = !this.autoPlay;
+    const btn = document.getElementById('autoPlayBtn');
+    btn.textContent = `🤖 AUTOPLAY: ${this.autoPlay ? 'ON' : 'OFF'}`;
+    btn.classList.toggle('btn-primary', this.autoPlay);
+    if (this.autoPlay) {
+      // Steps on a timer rather than per animation frame: at 60fps it would
+      // blur through a whole battle before you could read the log.
+      this.autoPlayTimer = setInterval(() => this.autoPlayStep(), 700);
+      this.setStatus('Autoplay on. It explores, fights and catches by itself.');
+    } else {
+      clearInterval(this.autoPlayTimer);
+      this.autoPlayTimer = null;
+      this.setStatus('Autoplay off.');
+    }
+  }
+
+  /** One decision. Deliberately simple: heal if hurt, fight, sometimes catch. */
+  autoPlayStep() {
+    if (!this.autoPlay) return;
+
+    if (this.battle && !this.battle.battleOver) {
+      const me = this.battle.playerCodemon;
+      // Max HP is `hp` on a Codemon, not `maxHp` - reading the wrong one gives
+      // NaN, every comparison is false, and it fights on at 0 HP with a full bag.
+      if (me.currentHp / me.hp < 0.45 && this.player.items.potion > 0) {
+        this.player.usePotion();
+        this.battle.addLog('Used potion! Recovered 20 HP.');
+        this.battle.enemyTurn();
+        this.updateBattleUI();
+        this.checkBattleStatus();
+        return;
+      }
+      // Worth a ball when it's weakened and the team has room.
+      const enemy = this.battle.enemyCodemon;
+      const weak = enemy.currentHp / enemy.hp < 0.4;
+      if (weak && this.player.items.pokeball > 0 && this.player.team.length < 6
+          && Math.random() < 0.5) {
+        this.confirmCatch();
+        return;
+      }
+      const moves = me.moves;
+      this.battle.playerAttack(moves[Math.floor(Math.random() * moves.length)]);
+      this.updateBattleUI();
+      this.checkBattleStatus();
+      return;
+    }
+
+    // Out of battle: put the team back on its feet before picking another fight.
+    // startEncounter only checks the team isn't empty, not that anyone can stand.
+    if (this.currentView !== 'exploration') this.switchView('exploration');
+    const fit = this.player.team.find(c => c.currentHp > 0);
+    if (!fit) {
+      if (this.player.items.potion > 0) {
+        this.player.usePotion();
+        this.updateTeamUI();
+        this.setStatus('Autoplay: used a potion to get back up.');
+      } else {
+        this.setStatus('Autoplay stopped: the whole team has fainted.');
+        this.toggleAutoPlay();
+      }
+      return;
+    }
+    if (this.player.getActiveCodemon().currentHp <= 0) {
+      this.player.team = [fit, ...this.player.team.filter(c => c !== fit)];
+      this.updateTeamUI();
+      return;
+    }
+    if (Math.random() < 0.3) {
+      this.startEncounter();
+      return;
+    }
+    const step = 20;
+    const dirs = [[0, -step], [0, step], [-step, 0], [step, 0]];
+    const [dx, dy] = dirs[Math.floor(Math.random() * dirs.length)];
+    this.movePlayer(dx, dy);
+  }
+
   gameLoop() {
     this.renderExploration();
     this.renderBattle();
@@ -426,11 +563,12 @@ class CodemonGame {
     this.explorationCtx.clearRect(0, 0, this.explorationCanvas.width, this.explorationCanvas.height);
 
     // Background
-    this.explorationCtx.fillStyle = '#1a2030';
-    this.explorationCtx.fillRect(0, 0, this.explorationCanvas.width, this.explorationCanvas.height);
+    this.drawBackdrop(this.explorationCtx, this.explorationCanvas, '#1a2030');
 
     // Grid
-    this.explorationCtx.strokeStyle = '#2a3a50';
+    // Barely-there grid: it's a movement aid, and at full strength it fought
+    // the artwork underneath.
+    this.explorationCtx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
     this.explorationCtx.lineWidth = 0.5;
     for (let x = 0; x < this.explorationCanvas.width; x += 20) {
       this.explorationCtx.beginPath();
@@ -445,18 +583,18 @@ class CodemonGame {
       this.explorationCtx.stroke();
     }
 
-    // Player
-    this.explorationCtx.fillStyle = '#38bdf8';
-    this.explorationCtx.beginPath();
-    this.explorationCtx.arc(this.playerPos.x, this.playerPos.y, 8, 0, Math.PI * 2);
-    this.explorationCtx.fill();
-
-    // Border
-    this.explorationCtx.strokeStyle = '#38bdf8';
-    this.explorationCtx.lineWidth = 2;
-    this.explorationCtx.beginPath();
-    this.explorationCtx.arc(this.playerPos.x, this.playerPos.y, 8, 0, Math.PI * 2);
-    this.explorationCtx.stroke();
+    // Player: the lead CodeMon's sprite, so you can see who you're walking around
+    // with instead of an anonymous dot.
+    const lead = this.player.getActiveCodemon();
+    if (lead && SPRITES.draw(this.explorationCtx, lead.species,
+                             this.playerPos.x, this.playerPos.y, 34)) {
+      // drawn
+    } else {
+      this.explorationCtx.fillStyle = '#38bdf8';
+      this.explorationCtx.beginPath();
+      this.explorationCtx.arc(this.playerPos.x, this.playerPos.y, 8, 0, Math.PI * 2);
+      this.explorationCtx.fill();
+    }
   }
 
   renderBattle() {
@@ -465,17 +603,39 @@ class CodemonGame {
     this.battleCtx.clearRect(0, 0, this.battleCanvas.width, this.battleCanvas.height);
 
     // Background
-    this.battleCtx.fillStyle = '#0a0e14';
+    this.drawBackdrop(this.battleCtx, this.battleCanvas, '#0a0e14');
+    // The forest is bright and the sprites are small; a dark wash keeps them
+    // readable without hiding the art.
+    this.battleCtx.fillStyle = 'rgba(6, 10, 18, 0.32)';
     this.battleCtx.fillRect(0, 0, this.battleCanvas.width, this.battleCanvas.height);
 
-    // Enemy side
-    this.battleCtx.fillStyle = '#ef4444';
-    this.battleCtx.font = '24px "Press Start 2P"';
-    this.battleCtx.fillText(this.battle.enemyCodemon.species.icon, 400, 50);
+    // Classic battle staging: the enemy stands back and up, yours is nearer the
+    // camera and larger, each on an oval of shadow so they sit on the ground.
+    const ctx = this.battleCtx;
+    const W = this.battleCanvas.width;
+    const H = this.battleCanvas.height;
 
-    // Player side
-    this.battleCtx.fillStyle = '#10b981';
-    this.battleCtx.fillText(this.battle.playerCodemon.species.icon, 50, 250);
+    const platform = (cx, cy, rx) => {
+      ctx.save();
+      ctx.globalAlpha = 0.38;
+      ctx.fillStyle = '#08130a';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, rx * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    // Sized off the canvas height so a taller battle scene gets bigger creatures.
+    const enemySize = Math.round(H * 0.30);
+    const allySize = Math.round(H * 0.40);      // bigger because it's closer
+    const ex = W * 0.70, ey = H * 0.32;
+    const ax = W * 0.27, ay = H * 0.70;
+
+    platform(ex, ey + enemySize * 0.40, enemySize * 0.40);
+    SPRITES.draw(ctx, this.battle.enemyCodemon.species, ex, ey, enemySize);
+
+    platform(ax, ay + allySize * 0.38, allySize * 0.40);
+    SPRITES.draw(ctx, this.battle.playerCodemon.species, ax, ay, allySize);
   }
 }
 
