@@ -364,6 +364,7 @@ class CodemonGame {
           <span>${move}</span>
           <span class="move-power">Power: ${moveData.power || '—'}</span>
         </div>
+        ${this.matchupNote(moveData)}
       `;
       btn.addEventListener('click', () => {
         this.battle.playerAttack(move);
@@ -720,6 +721,15 @@ class CodemonGame {
   }
 
   // Rendering
+  /** A line under a move button saying how it fares against the current foe. */
+  matchupNote(moveData) {
+    if (!moveData || !moveData.power) return '';
+    const e = typeEffectiveness(moveData.type, this.battle.enemyCodemon.species.type);
+    if (e > 1) return '<div class="move-matchup good">Super effective</div>';
+    if (e < 1) return '<div class="move-matchup bad">Not very effective</div>';
+    return '';
+  }
+
   toggleAutoPlay() {
     this.autoPlay = !this.autoPlay;
     const btn = document.getElementById('autoPlayBtn');
