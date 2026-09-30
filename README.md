@@ -76,6 +76,7 @@ creatures.js      the 1,000-species roster, moves, and creature/player classes
 sprites.js        loads and draws creature sprites
 assets/pixmons/   creature sprites (000.png – 999.png)
 assets/bg/        area backdrops
+tests/            Node checks for the game rules (node --test tests/*.test.mjs)
 scripts/
   gen_roster.py   generates the roster in creatures.js (seeded, so it's reproducible)
   prep_pixmons.py turns the raw Pixmon pack into game-ready sprites
