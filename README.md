@@ -83,6 +83,12 @@ scripts/
   serve.py        local server with caching off
 ```
 
+Tests use Node's built-in runner, no install needed:
+
+```bash
+node --test tests/*.test.mjs
+```
+
 To regenerate the roster after editing names or stats in `scripts/gen_roster.py`:
 
 ```bash
