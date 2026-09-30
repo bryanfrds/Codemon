@@ -779,8 +779,16 @@ class CodemonGame {
         this.confirmCatch();
         return;
       }
+      // Mostly the move expected to hit hardest against this foe's type, with
+      // the odd random pick so it doesn't spam one move every fight.
       const moves = me.moves;
-      this.battle.playerAttack(moves[Math.floor(Math.random() * moves.length)]);
+      const expected = (m) => {
+        const d = MOVE_POOL[m];
+        return d ? d.power * d.accuracy * typeEffectiveness(d.type, enemy.species.type) : 0;
+      };
+      const best = moves.reduce((a, b) => (expected(b) > expected(a) ? b : a));
+      this.battle.playerAttack(Math.random() < 0.75 ? best
+                               : moves[Math.floor(Math.random() * moves.length)]);
       this.updateBattleUI();
       this.checkBattleStatus();
       return;
