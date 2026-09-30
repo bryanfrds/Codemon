@@ -28,7 +28,7 @@ class BattleState {
     if (!moveData) return 0;
 
     const baseDamage = moveData.power;
-    const effectiveness = 1.0; // Simplified type effectiveness
+    const effectiveness = typeEffectiveness(moveData.type, defender.species.type);
     const random = 0.85 + Math.random() * 0.15;
 
     const def = defender.stats.def * defMultiplier;
