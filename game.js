@@ -1047,13 +1047,14 @@ class CodemonGame {
     ctx.textAlign = 'center';
     const w = ctx.canvas.width;
     this.fx.texts = this.fx.texts.filter(t => {
-      ctx.font = `bold ${t.size}px "Press Start 2P", monospace`;
-      // Keep long labels inside the canvas; the foe stands near the right edge.
-      const half = ctx.measureText(t.text).width / 2 + 4;
-      const x = Math.max(half, Math.min(w - half, t.x));
       t.life -= 0.018;
       if (t.life <= 0) return false;
-      const rise = (1 - t.life) * 46;
+      ctx.font = `bold ${t.size}px "Press Start 2P", monospace`;
+      // Keep long labels inside the canvas; the foe stands near the right edge
+      // and top, and the label above its damage number would drift off both.
+      const half = ctx.measureText(t.text).width / 2 + 4;
+      const x = Math.max(half, Math.min(w - half, t.x));
+      const rise = Math.min((1 - t.life) * 46, t.y - t.size - 2);
       ctx.globalAlpha = Math.min(1, t.life * 2);
       ctx.lineWidth = 4;
       ctx.strokeStyle = '#0b0f17';
