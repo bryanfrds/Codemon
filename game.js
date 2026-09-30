@@ -958,6 +958,9 @@ class CodemonGame {
             this.burst(to.x, to.y, color, 18, 0);
             this.fx.rings.push({ x: to.x, y: to.y, color, t0: now });
             this.floatText(to.x, to.y - to.r, `-${ev.damage}`, '#ff5a5a');
+            // Above the number, so both read at once.
+            if (ev.effectiveness > 1) this.floatText(to.x, to.y - to.r - 22, 'SUPER EFFECTIVE', '#facc15');
+            else if (ev.effectiveness < 1) this.floatText(to.x, to.y - to.r - 22, 'NOT VERY EFFECTIVE', '#94a3b8');
           } else {
             this.floatText(to.x, to.y - to.r, 'MISS', '#cbd5e1');
           }
