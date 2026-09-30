@@ -13,11 +13,15 @@ vm.runInContext(readFileSync(new URL('../creatures.js', import.meta.url), 'utf8'
   '\nthis.CODEMON_SPECIES = CODEMON_SPECIES; this.MOVE_POOL = MOVE_POOL;', ctx);
 const { typeEffectiveness, TYPE_CYCLE, CODEMON_SPECIES, MOVE_POOL } = ctx;
 
-test('each type beats the next one round the loop', () => {
-  for (let i = 0; i < TYPE_CYCLE.length; i++) {
-    const next = TYPE_CYCLE[(i + 1) % TYPE_CYCLE.length];
-    assert.equal(typeEffectiveness(TYPE_CYCLE[i], next), 1.5, `${TYPE_CYCLE[i]} vs ${next}`);
-    assert.equal(typeEffectiveness(next, TYPE_CYCLE[i]), 0.67, `${next} vs ${TYPE_CYCLE[i]}`);
+// Written out here rather than read from TYPE_CYCLE, so reordering the chart
+// in the game (which would flip every matchup the README describes) fails.
+const BEATS = [['bug', 'code'], ['code', 'logic'], ['logic', 'memory'], ['memory', 'flow'], ['flow', 'bug']];
+
+test('each type beats the next one round the loop, and only five types exist', () => {
+  assert.equal(TYPE_CYCLE.length, 5);
+  for (const [strong, weak] of BEATS) {
+    assert.equal(typeEffectiveness(strong, weak), 1.5, `${strong} vs ${weak}`);
+    assert.equal(typeEffectiveness(weak, strong), 0.67, `${weak} vs ${strong}`);
   }
 });
 
