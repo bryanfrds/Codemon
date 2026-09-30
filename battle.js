@@ -78,9 +78,12 @@ class BattleState {
 
     const damage = this.calculateDamage(user, target, move, this.defBoost[other]);
     target.takeDamage(damage);
+    const effectiveness = data ? typeEffectiveness(data.type, target.species.type) : 1;
+    const verdict = effectiveness > 1 ? " It's super effective!"
+                  : effectiveness < 1 ? " It's not very effective." : '';
     this.log.push(damage === 0 ? `${name}'s ${move} missed!`
-                               : `${name} used ${move}! Dealt ${damage} damage.`);
-    this.events.push({ side, move, kind: damage === 0 ? 'miss' : 'hit', damage,
+                               : `${name} used ${move}! Dealt ${damage} damage.${verdict}`);
+    this.events.push({ side, move, kind: damage === 0 ? 'miss' : 'hit', damage, effectiveness,
                        user, target, userHpBefore, targetHpBefore,
                        userHp: user.currentHp, targetHp: target.currentHp });
     return damage;
