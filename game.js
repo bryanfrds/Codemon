@@ -378,6 +378,8 @@ class CodemonGame {
         ${this.matchupNote(moveData)}
       `;
       btn.addEventListener('click', () => {
+        // The picker can still be open when the fight ends underneath it.
+        if (!this.battleActive()) { this.closeMoveModal(); return; }
         this.battle.playerAttack(move);
         this.closeMoveModal();
         this.updateBattleUI();
@@ -472,6 +474,7 @@ class CodemonGame {
       btn.className = 'move-btn';
       btn.textContent = `Potion (${this.player.items.potion})`;
       btn.addEventListener('click', () => {
+        if (!this.battleActive()) { this.closeMoveModal(); return; }
         this.player.usePotion();
         this.battle.addLog('Used potion! Recovered 20 HP.');
         this.battle.enemyTurn();
