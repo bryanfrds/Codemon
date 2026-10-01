@@ -730,6 +730,7 @@ class CodemonGame {
 
   endBattle() {
     this.battle = null;
+    this.fx.evolution = null;
     this.updateTeamUI();
     this.updateStats();
     this.switchView('exploration');
@@ -1268,12 +1269,23 @@ class CodemonGame {
     ctx.filter = 'none';
 
     platform(ax, ay + allySize * 0.38, allySize * 0.40);
-    const mine = this.battle.playerCodemon.species;
+    let mine = this.battle.playerCodemon.species;
+    let filter = fx.player.filter;
+    // Evolution: the old form swells with white light, flashes, and the new
+    // form appears out of the glow, which then settles into its own colour.
+    const evo = this.fx.evolution;
+    const ep = evo ? (now - evo.t0) / EVOLVE_MS : 1;
+    if (evo && ep >= 1) this.fx.evolution = null;
+    if (ep < 1) {
+      if (ep < 0.5) mine = evo.from;
+      const light = Math.sin(ep * Math.PI);                  // 0 -> 1 -> 0
+      this.drawAura(ctx, ax, ay, allySize * (1 + light * 0.8), '#ffffff', light * 1.2);
+      filter = `brightness(${1 + light * 2.5}) saturate(${1 - light * 0.8})`;
+    }
     this.drawAura(ctx, ax + fx.player.dx, ay + fx.player.dy, allySize,
                   this.typeColorOf(mine.type), this.evolvedGlow(mine, now));
-    ctx.filter = fx.player.filter;
-    SPRITES.draw(ctx, this.battle.playerCodemon.species,
-                 ax + fx.player.dx, ay + fx.player.dy, allySize);
+    ctx.filter = filter;
+    SPRITES.draw(ctx, mine, ax + fx.player.dx, ay + fx.player.dy, allySize);
     ctx.filter = 'none';
 
     this.drawFxOverlay(ctx, now);
