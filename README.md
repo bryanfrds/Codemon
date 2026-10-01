@@ -6,6 +6,10 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 ![Tech](https://img.shields.io/badge/Tech-HTML5%20Canvas-blue)
 ![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(Pure%20Vanilla)-success)
 
+**[▶ Play it in your browser](https://bryanfrds.github.io/Codemon/)**
+
+![CodeMon on autoplay: exploring, fighting with type matchups, and catching](docs/gameplay.gif)
+
 ---
 
 ## 🎮 Features
