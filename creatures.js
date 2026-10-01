@@ -14050,6 +14050,37 @@ const MOVE_POOL = {
   'Harden': { power: 0, accuracy: 100, type: 'normal', category: 'status', isDefensive: true }
 };
 
+// Evolution. The sprite pack has no evolution lines, so a CodeMon evolves into a
+// different, stronger species of its own type. Each type's 200 species are
+// sorted by total base stats and cut into weak, middle and strong thirds; the
+// k-th weakest of each third form one chain: weak[k] -> middle[k] -> strong[k].
+// That makes every step a real jump in power, not a swap with a near-twin.
+const EVOLVE_LEVELS = [16, 32];   // weak -> middle, middle -> strong
+const baseTotal = (sp) => sp.baseHp + sp.baseAtk + sp.baseDef + sp.baseSp + sp.baseSpd;
+
+/** species id -> { into, level } for every species that evolves, and its stage. */
+const EVOLUTIONS = new Map();
+const EVOLUTION_STAGE = new Map();   // species id -> 0 (base), 1 or 2
+for (const type of TYPE_CYCLE) {
+  const ranked = CODEMON_SPECIES.filter(sp => sp.type === type)
+    .sort((a, b) => baseTotal(a) - baseTotal(b) || a.id - b.id);
+  const third = Math.floor(ranked.length / 3);
+  for (let k = 0; k < third; k++) {
+    const [weak, middle, strong] = [ranked[k], ranked[third + k], ranked[2 * third + k]];
+    EVOLUTIONS.set(weak.id, { into: middle, level: EVOLVE_LEVELS[0] });
+    EVOLUTIONS.set(middle.id, { into: strong, level: EVOLVE_LEVELS[1] });
+    EVOLUTION_STAGE.set(weak.id, 0);
+    EVOLUTION_STAGE.set(middle.id, 1);
+    EVOLUTION_STAGE.set(strong.id, 2);
+  }
+}
+
+/** The species this one evolves into at `level` or below, or null. */
+function evolutionFor(species, level) {
+  const evo = EVOLUTIONS.get(species.id);
+  return evo && level >= evo.level ? evo.into : null;
+}
+
 class Codemon {
   constructor(species, level = 1) {
     this.species = species;
@@ -14233,3 +14264,5 @@ window.CODEMON_SPECIES = CODEMON_SPECIES;
 window.MOVE_POOL = MOVE_POOL;
 window.SHOP_PRICES = SHOP_PRICES;
 window.nextRestock = nextRestock;
+window.evolutionFor = evolutionFor;
+window.EVOLUTION_STAGE = EVOLUTION_STAGE;
