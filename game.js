@@ -552,7 +552,9 @@ class CodemonGame {
         this.updateBattleUI();
         this.setStatus(`Won battle! Gained ${exp} EXP.`);
         this.battle.resolved = true;
-        setTimeout(() => this.endBattle(), 2000);
+        const won = this.battle;
+        // Only end the fight this timer was set for, never a newer one.
+        setTimeout(() => { if (this.battle === won) this.endBattle(); }, 2000);
       } else {
         this.setStatus('Your CodeMon fainted!');
         const availableCodemon = this.player.team.find(c => c.currentHp > 0);
@@ -564,7 +566,12 @@ class CodemonGame {
         } else {
           this.setStatus('All CodeMons fainted!');
           this.battle.resolved = true;
-          setTimeout(() => { this.endBattle(); this.blackOut(); }, 2000);
+          const lost = this.battle;
+          setTimeout(() => {
+            if (this.battle !== lost) return;
+            this.endBattle();
+            this.blackOut();
+          }, 2000);
         }
       }
     }
