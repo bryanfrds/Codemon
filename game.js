@@ -291,7 +291,10 @@ class CodemonGame {
   startEncounter() {
     // One fight at a time. During the 2s pause after a loss you could walk into
     // a new fight, and the old fight's blackout then never happened.
-    if (this.battle) return;
+    if (this.battle) {
+      this.setStatus('Finish the current fight first.');
+      return;
+    }
     if (this.player.team.length === 0) {
       this.setStatus('No CodeMons to battle!');
       return;
