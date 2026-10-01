@@ -30,6 +30,8 @@ const AREAS = [
 const SAVE_KEY = 'codemonSave';
 const SAVE_VERSION = 1;          // bump if the saved shape changes
 
+const EVOLVE_MS = 1800;   // length of the evolution animation
+
 class CodemonGame {
   constructor() {
     this.player = new Player();
@@ -555,6 +557,22 @@ class CodemonGame {
     }
   }
 
+  /**
+   * Evolve `codemon` as far as its level allows (a high-level catch can skip a
+   * stage), log it, add the new form to the Pokedex and start the animation.
+   * Returns { from, into } if it evolved, otherwise null.
+   */
+  evolveIfReady(codemon) {
+    const from = codemon.species;
+    for (let into; (into = evolutionFor(codemon.species, codemon.level)); ) codemon.evolveInto(into);
+    if (codemon.species === from) return null;
+    this.player.pokedex.add(codemon.species.id);
+    this.battle.addLog(`What? ${from.name} is evolving!`);
+    this.battle.addLog(`${from.name} evolved into ${codemon.species.name}!`);
+    this.fx.evolution = { from, into: codemon.species, t0: performance.now() };
+    return { from, into: codemon.species };
+  }
+
   checkBattleStatus() {
     // Once a finished fight has its endBattle (and maybe blackOut) scheduled,
     // further calls do nothing. A click during the 2s pause used to schedule a
@@ -570,12 +588,17 @@ class CodemonGame {
         this.battle.playerCodemon.gainExp(exp);
         this.player.addGold(50);
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
+        const evolved = this.evolveIfReady(this.battle.playerCodemon);
         this.updateBattleUI();
-        this.setStatus(`Won battle! Gained ${exp} EXP.`);
+        this.setStatus(evolved
+          ? `Won battle! ${evolved.from.name} evolved into ${evolved.into.name}!`
+          : `Won battle! Gained ${exp} EXP.`);
         this.battle.resolved = true;
         const won = this.battle;
-        // Only end the fight this timer was set for, never a newer one.
-        setTimeout(() => { if (this.battle === won) this.endBattle(); }, 2000);
+        // Only end the fight this timer was set for, never a newer one. A little
+        // longer when there's an evolution to watch.
+        setTimeout(() => { if (this.battle === won) this.endBattle(); },
+                   evolved ? EVOLVE_MS + 600 : 2000);
       } else {
         this.setStatus('Your CodeMon fainted!');
         const availableCodemon = this.player.team.find(c => c.currentHp > 0);
