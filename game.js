@@ -448,6 +448,7 @@ class CodemonGame {
       btn.className = 'move-btn';
       btn.textContent = `${codemon.species.name} (Lvl ${codemon.level})`;
       btn.addEventListener('click', () => {
+        if (!this.battleActive()) { this.closeMoveModal(); return; }
         if (idx !== 0) {
           this.player.switchCodemon(idx);
           this.battle.playerCodemon = this.player.getActiveCodemon();
