@@ -568,7 +568,8 @@ class CodemonGame {
     this.player.pokedex.add(codemon.species.id);
     this.battle.addLog(`What? ${from.name} is evolving!`);
     this.battle.addLog(`${from.name} evolved into ${codemon.species.name}!`);
-    this.fx.evolution = { from, into: codemon.species, t0: performance.now() };
+    // t0 is set once the knockout has finished playing (see renderBattle).
+    this.fx.evolution = { from, into: codemon.species, t0: null };
     return { from, into: codemon.species };
   }
 
@@ -597,7 +598,7 @@ class CodemonGame {
         // Only end the fight this timer was set for, never a newer one. A little
         // longer when there's an evolution to watch.
         setTimeout(() => { if (this.battle === won) this.endBattle(); },
-                   evolved ? EVOLVE_MS + 600 : 2000);
+                   evolved ? EVOLVE_MS + 1400 : 2000);   // + time for the last hit to play
       } else {
         this.setStatus('Your CodeMon fainted!');
         const availableCodemon = this.player.team.find(c => c.currentHp > 0);
@@ -1273,13 +1274,17 @@ class CodemonGame {
     // Evolution: the old form swells with white light, flashes, and the new
     // form appears out of the glow, which then settles into its own colour.
     const evo = this.fx.evolution;
-    const ep = evo ? (now - evo.t0) / EVOLVE_MS : 1;
+    if (evo && evo.t0 === null && !this.fxBusy()) evo.t0 = now;   // after the last hit lands
+    const ep = !evo ? 1 : evo.t0 === null ? 0 : (now - evo.t0) / EVOLVE_MS;
     if (evo && ep >= 1) this.fx.evolution = null;
     if (ep < 1) {
       if (ep < 0.5) mine = evo.from;
       const light = Math.sin(ep * Math.PI);                  // 0 -> 1 -> 0
-      this.drawAura(ctx, ax, ay, allySize * (1 + light * 0.8), '#ffffff', light * 1.2);
-      filter = `brightness(${1 + light * 2.5}) saturate(${1 - light * 0.8})`;
+      this.drawAura(ctx, ax + fx.player.dx, ay + fx.player.dy, allySize * (1 + light * 0.8),
+                    '#ffffff', light * 1.2);
+      const glowFilter = `brightness(${1 + light * 2.5}) saturate(${1 - light * 0.8})`;
+      // Keep any hit flash rather than overwriting it.
+      filter = filter && filter !== 'none' ? `${filter} ${glowFilter}` : glowFilter;
     }
     this.drawAura(ctx, ax + fx.player.dx, ay + fx.player.dy, allySize,
                   this.typeColorOf(mine.type), this.evolvedGlow(mine, now));
