@@ -364,6 +364,7 @@ class CodemonGame {
           <span>${move}</span>
           <span class="move-power">Power: ${moveData.power || '—'}</span>
         </div>
+        ${this.matchupNote(moveData)}
       `;
       btn.addEventListener('click', () => {
         this.battle.playerAttack(move);
@@ -720,6 +721,15 @@ class CodemonGame {
   }
 
   // Rendering
+  /** A line under a move button saying how it fares against the current foe. */
+  matchupNote(moveData) {
+    if (!moveData || !moveData.power) return '';
+    const e = typeEffectiveness(moveData.type, this.battle.enemyCodemon.species.type);
+    if (e > 1) return '<div class="move-matchup good">Super effective</div>';
+    if (e < 1) return '<div class="move-matchup bad">Not very effective</div>';
+    return '';
+  }
+
   toggleAutoPlay() {
     this.autoPlay = !this.autoPlay;
     const btn = document.getElementById('autoPlayBtn');
@@ -769,8 +779,16 @@ class CodemonGame {
         this.confirmCatch();
         return;
       }
+      // Mostly the move expected to hit hardest against this foe's type, with
+      // the odd random pick so it doesn't spam one move every fight.
       const moves = me.moves;
-      this.battle.playerAttack(moves[Math.floor(Math.random() * moves.length)]);
+      const expected = (m) => {
+        const d = MOVE_POOL[m];
+        return d ? d.power * d.accuracy * typeEffectiveness(d.type, enemy.species.type) : 0;
+      };
+      const best = moves.reduce((a, b) => (expected(b) > expected(a) ? b : a));
+      this.battle.playerAttack(Math.random() < 0.75 ? best
+                               : moves[Math.floor(Math.random() * moves.length)]);
       this.updateBattleUI();
       this.checkBattleStatus();
       return;
@@ -958,6 +976,9 @@ class CodemonGame {
             this.burst(to.x, to.y, color, 18, 0);
             this.fx.rings.push({ x: to.x, y: to.y, color, t0: now });
             this.floatText(to.x, to.y - to.r, `-${ev.damage}`, '#ff5a5a');
+            // Above the number, so both read at once.
+            if (ev.effectiveness > 1) this.floatText(to.x, to.y - to.r - 22, 'SUPER EFFECTIVE', '#facc15', 12);
+            else if (ev.effectiveness < 1) this.floatText(to.x, to.y - to.r - 22, 'NOT VERY EFFECTIVE', '#94a3b8', 12);
           } else {
             this.floatText(to.x, to.y - to.r, 'MISS', '#cbd5e1');
           }
@@ -992,8 +1013,8 @@ class CodemonGame {
     }
   }
 
-  floatText(x, y, text, color) {
-    this.fx.texts.push({ x, y, text, color, life: 1 });
+  floatText(x, y, text, color, size = 20) {
+    this.fx.texts.push({ x, y, text, color, size, life: 1 });
   }
 
   /** Particles, impact rings and damage numbers, drawn over the creatures. */
@@ -1023,18 +1044,23 @@ class CodemonGame {
     });
 
     ctx.save();
-    ctx.font = 'bold 20px "Press Start 2P", monospace';
     ctx.textAlign = 'center';
+    const w = ctx.canvas.width;
     this.fx.texts = this.fx.texts.filter(t => {
       t.life -= 0.018;
       if (t.life <= 0) return false;
-      const rise = (1 - t.life) * 46;
+      ctx.font = `bold ${t.size}px "Press Start 2P", monospace`;
+      // Keep long labels inside the canvas; the foe stands near the right edge
+      // and top, and the label above its damage number would drift off both.
+      const half = ctx.measureText(t.text).width / 2 + 4;
+      const x = Math.max(half, Math.min(w - half, t.x));
+      const rise = Math.min((1 - t.life) * 46, t.y - t.size - 2);
       ctx.globalAlpha = Math.min(1, t.life * 2);
       ctx.lineWidth = 4;
       ctx.strokeStyle = '#0b0f17';
-      ctx.strokeText(t.text, t.x, t.y - rise);
+      ctx.strokeText(t.text, x, t.y - rise);
       ctx.fillStyle = t.color;
-      ctx.fillText(t.text, t.x, t.y - rise);
+      ctx.fillText(t.text, x, t.y - rise);
       return true;
     });
     ctx.restore();

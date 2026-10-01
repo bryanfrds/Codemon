@@ -28,7 +28,11 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 - **Pokédex** of everything you've caught.
 - **Auto-save** in your browser, with a New game button to start over.
 
-Five types: **bug**, **code**, **memory**, **logic** and **flow**.
+Five types: **bug**, **code**, **memory**, **logic** and **flow**. Each one beats the next round a loop and is weak to the one before it:
+
+**bug** → **code** → **logic** → **memory** → **flow** → **bug**
+
+So bug moves hit code creatures for 1.5× damage and flow creatures for about two-thirds. Everything else, including normal moves like Scratch, does normal damage. The move picker tells you which of your moves suit the foe in front of you.
 
 ---
 
@@ -72,11 +76,18 @@ creatures.js      the 1,000-species roster, moves, and creature/player classes
 sprites.js        loads and draws creature sprites
 assets/pixmons/   creature sprites (000.png – 999.png)
 assets/bg/        area backdrops
+tests/            Node checks for the game rules (node --test tests/*.test.mjs)
 scripts/
   gen_roster.py   generates the roster in creatures.js (seeded, so it's reproducible)
   prep_pixmons.py turns the raw Pixmon pack into game-ready sprites
   tint_bg.py      derives the area backdrops from the forest one
   serve.py        local server with caching off
+```
+
+Tests use Node's built-in runner, no install needed:
+
+```bash
+node --test tests/*.test.mjs
 ```
 
 To regenerate the roster after editing names or stats in `scripts/gen_roster.py`:

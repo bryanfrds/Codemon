@@ -23,12 +23,11 @@ class BattleState {
     return this.playerSpeed >= this.enemySpeed ? 'player' : 'enemy';
   }
 
-  calculateDamage(attacker, defender, move, defMultiplier = 1) {
+  calculateDamage(attacker, defender, move, defMultiplier = 1, effectiveness = 1) {
     const moveData = MOVE_POOL[move];
     if (!moveData) return 0;
 
     const baseDamage = moveData.power;
-    const effectiveness = 1.0; // Simplified type effectiveness
     const random = 0.85 + Math.random() * 0.15;
 
     const def = defender.stats.def * defMultiplier;
@@ -76,11 +75,15 @@ class BattleState {
       return 0;
     }
 
-    const damage = this.calculateDamage(user, target, move, this.defBoost[other]);
+    // Worked out once here, so the damage and the log line can't disagree.
+    const effectiveness = data ? typeEffectiveness(data.type, target.species.type) : 1;
+    const damage = this.calculateDamage(user, target, move, this.defBoost[other], effectiveness);
     target.takeDamage(damage);
+    const verdict = effectiveness > 1 ? " It's super effective!"
+                  : effectiveness < 1 ? " It's not very effective." : '';
     this.log.push(damage === 0 ? `${name}'s ${move} missed!`
-                               : `${name} used ${move}! Dealt ${damage} damage.`);
-    this.events.push({ side, move, kind: damage === 0 ? 'miss' : 'hit', damage,
+                               : `${name} used ${move}! Dealt ${damage} damage.${verdict}`);
+    this.events.push({ side, move, kind: damage === 0 ? 'miss' : 'hit', damage, effectiveness,
                        user, target, userHpBefore, targetHpBefore,
                        userHp: user.currentHp, targetHp: target.currentHp });
     return damage;

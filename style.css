@@ -730,3 +730,8 @@ body {
 /* New game sits with the nav buttons but reads as a destructive action. */
 .new-game-btn { margin-top: 10px; opacity: 0.75; }
 .new-game-btn.confirming { opacity: 1; border-color: #f87171; color: #f87171; }
+
+/* Type matchup hint under a move in the move picker. */
+.move-matchup { font-size: 11px; margin-top: 3px; text-align: left; }
+.move-matchup.good { color: #facc15; }
+.move-matchup.bad { color: #94a3b8; }
