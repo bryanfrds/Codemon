@@ -24,6 +24,7 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 - **Animated battles** — attacks lunge, hits flash and shake with sparks in the move's type colour, damage numbers float up, and HP bars drop when the hit lands.
 - **Catching** with Pokéballs and Great Balls; weaken a CodeMon first for better odds.
 - **Items** — potions to heal mid-fight.
+- **Shop** — spend the gold you win on Pokéballs (40), Great Balls (100) and Potions (25). It's closed during fights. Autoplay restocks on its own when it runs low.
 - **Autoplay** — explores, fights, heals and catches on its own.
 - **Pokédex** of everything you've caught.
 - **Auto-save** in your browser, with a New game button to start over.
@@ -61,7 +62,8 @@ Progress saves automatically in your browser, after each battle, when you change
 2. Walk around with the arrow buttons, or press **ENCOUNTER** to find a wild CodeMon.
 3. In battle: **MOVE** to attack, **ITEM** for a potion, **CATCH** to throw a ball, **SWITCH** to swap team members, **RUN** to flee.
 4. Change area from the **AREAS** panel to meet different CodeMon.
-5. Or press **🤖 AUTOPLAY** and let it play.
+5. Spend gold in the **SHOP** between fights.
+6. Or press **🤖 AUTOPLAY** and let it play.
 
 ---
 

@@ -735,3 +735,22 @@ body {
 .move-matchup { font-size: 11px; margin-top: 3px; text-align: left; }
 .move-matchup.good { color: #facc15; }
 .move-matchup.bad { color: #94a3b8; }
+
+/* Shop window: one row per item, matching the move picker's rows. */
+.shop-gold { margin: 8px 0 0; color: #facc15; font-size: 12px; }
+.shop-list { display: grid; gap: 6px; margin: 16px 0; min-width: 280px; }
+.shop-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  background: #0f1319;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #fff;
+}
+.shop-item { font-size: 13px; }
+.shop-owned { font-size: 11px; color: #94a3b8; }
+.shop-buy { padding: 6px 10px; font-size: 11px; }
+.shop-buy:disabled { opacity: 0.4; cursor: not-allowed; }

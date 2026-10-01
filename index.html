@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1790758949">
+  <link rel="stylesheet" href="style.css?v=1790819119">
 </head>
 <body class="bg-dark">
   <div class="app-container">
@@ -151,6 +151,7 @@
           <button id="navPokedex" class="nav-btn">📖 Pokedex</button>
           <button id="navTeam" class="nav-btn">👥 Team</button>
           <button id="navTraining" class="nav-btn">💪 Training</button>
+          <button id="navShop" class="nav-btn">🛒 Shop</button>
           <button id="newGameBtn" class="nav-btn new-game-btn">↺ New game</button>
         </div>
 
@@ -187,6 +188,15 @@
     </div>
   </div>
 
+  <div id="shopModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>SHOP</h2>
+      <p class="shop-gold">Gold: <span id="shopGold">0</span></p>
+      <div id="shopList" class="shop-list"></div>
+      <button id="closeShopBtn" class="btn btn-secondary">BACK</button>
+    </div>
+  </div>
+
   <div id="moveSelectModal" class="modal hidden">
     <div class="modal-content">
       <h2>SELECT MOVE</h2>
@@ -195,9 +205,9 @@
     </div>
   </div>
 
-  <script src="sprites.js?v=1790758949"></script>
-  <script src="creatures.js?v=1790758949"></script>
-  <script src="battle.js?v=1790758949"></script>
-  <script src="game.js?v=1790758949"></script>
+  <script src="sprites.js?v=1790819119"></script>
+  <script src="creatures.js?v=1790819119"></script>
+  <script src="battle.js?v=1790819119"></script>
+  <script src="game.js?v=1790819119"></script>
 </body>
 </html>

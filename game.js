@@ -153,6 +153,9 @@ class CodemonGame {
     document.getElementById('confirmCatchBtn').addEventListener('click', () => this.confirmCatch());
     document.getElementById('cancelCatchBtn').addEventListener('click', () => this.closeCatchModal());
     document.getElementById('closeMoveModalBtn').addEventListener('click', () => this.closeMoveModal());
+    document.getElementById('navShop').addEventListener('click', () => this.openShop());
+    document.getElementById('closeShopBtn').addEventListener('click', () =>
+      document.getElementById('shopModal').classList.add('hidden'));
 
     // Area buttons
     document.querySelectorAll('.area-btn').forEach((btn, idx) => {
@@ -311,6 +314,8 @@ class CodemonGame {
     const enemy = new Codemon(species, enemyLevel);
 
     this.battle = new BattleState(this.player.getActiveCodemon(), enemy);
+    // The shop is closed during fights; shut it if autoplay walked into one.
+    document.getElementById('shopModal').classList.add('hidden');
     this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.switchView('battle');
     this.updateBattleUI();
@@ -380,6 +385,48 @@ class CodemonGame {
 
   closeMoveModal() {
     this.moveSelectModal.classList.add('hidden');
+  }
+
+  /** The shop. Closed during a fight, so you can't restock mid-battle. */
+  openShop() {
+    if (this.battle) {
+      this.setStatus('Finish the fight before going shopping.');
+      return;
+    }
+    this.renderShop();
+    document.getElementById('shopModal').classList.remove('hidden');
+  }
+
+  renderShop() {
+    const names = { pokeball: '🔴 Pokéball', greatball: '🟡 Great Ball', potion: '💊 Potion' };
+    document.getElementById('shopGold').textContent = this.player.gold;
+    const list = document.getElementById('shopList');
+    list.innerHTML = '';
+    for (const [kind, price] of Object.entries(SHOP_PRICES)) {
+      const row = document.createElement('div');
+      row.className = 'shop-row';
+      row.innerHTML = `
+        <span class="shop-item">${names[kind] || kind}</span>
+        <span class="shop-owned">have ${this.player.items[kind] || 0}</span>
+        <button class="btn btn-primary shop-buy"${this.player.gold < price ? ' disabled' : ''}>
+          Buy · ${price}g
+        </button>`;
+      row.querySelector('button').addEventListener('click', () => {
+        // Autoplay can start a fight while the shop is open; checking only on
+        // open let you keep buying mid-battle.
+        if (this.battle) {
+          document.getElementById('shopModal').classList.add('hidden');
+          this.setStatus('Finish the fight before going shopping.');
+          return;
+        }
+        if (!this.player.buy(kind)) return;
+        this.updateStats();
+        this.saveGame();
+        this.setStatus(`Bought a ${(names[kind] || kind).replace(/^\S+ /, '')} for ${price} gold.`);
+        this.renderShop();
+      });
+      list.appendChild(row);
+    }
   }
 
   showSwitchTeam() {
@@ -464,6 +511,9 @@ class CodemonGame {
         this.endBattle();
       } else {
         this.closeCatchModal();
+        // A failed throw gives the foe a free hit, which can knock your CodeMon
+        // out. Without this the fight never ended: no switch, no blackout.
+        this.checkBattleStatus();
       }
     }
   }
@@ -478,6 +528,9 @@ class CodemonGame {
 
     if (success) {
       this.endBattle();
+    } else {
+      // Same as a failed catch: the foe's free hit may have ended the fight.
+      this.checkBattleStatus();
     }
   }
 
@@ -794,6 +847,11 @@ class CodemonGame {
       return;
     }
 
+    // A finished fight stays in this.battle for the 2s before endBattle/blackOut
+    // run. Acting in that gap bought potions just before blackOut healed the team
+    // for free, and could start a new fight under the old one. Wait it out.
+    if (this.battle) return;
+
     // Out of battle: put the team back on its feet before picking another fight.
     // startEncounter only checks the team isn't empty, not that anyone can stand.
     if (this.currentView !== 'exploration') this.switchView('exploration');
@@ -812,6 +870,14 @@ class CodemonGame {
     if (this.player.getActiveCodemon().currentHp <= 0) {
       this.player.team = [fit, ...this.player.team.filter(c => c !== fit)];
       this.updateTeamUI();
+      return;
+    }
+    // Restock between fights, one item per step (see nextRestock).
+    const restock = nextRestock(this.player);
+    if (restock && this.player.buy(restock)) {
+      this.updateStats();
+      this.saveGame();
+      this.setStatus(`Autoplay: bought a ${restock === 'potion' ? 'Potion' : 'Pokéball'} from the shop.`);
       return;
     }
     if (Math.random() < 0.3) {

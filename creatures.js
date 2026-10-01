@@ -14126,6 +14126,24 @@ class Codemon {
   }
 }
 
+// Shop prices in gold. A win pays 50 and a catch 30, so a potion costs half a
+// win, a Pokéball a bit under one, and a Great Ball two.
+const SHOP_PRICES = {
+  pokeball: 40,
+  greatball: 100,
+  potion: 25,
+};
+
+/**
+ * What autoplay should buy next between fights, or null. Potions first, since
+ * running out of those is what ends a run; then Pokéballs. Only tops each up to 2,
+ * and only when it can pay.
+ */
+function nextRestock(player) {
+  return ['potion', 'pokeball'].find(k => (player.items[k] || 0) < 2
+                                       && player.gold >= SHOP_PRICES[k]) || null;
+}
+
 class Player {
   constructor() {
     this.level = 1;
@@ -14182,6 +14200,24 @@ class Player {
     return false;
   }
 
+  /**
+   * Buy `qty` of an item from the shop. Returns false, and changes nothing, for
+   * an item the shop doesn't sell, a quantity that isn't a positive whole number,
+   * or not enough gold.
+   */
+  buy(itemType, qty = 1) {
+    // hasOwn, not a plain lookup: SHOP_PRICES['constructor'] is a function, and
+    // buying it turned gold into NaN.
+    if (!Object.hasOwn(SHOP_PRICES, itemType)) return false;
+    const price = SHOP_PRICES[itemType];
+    if (!Number.isInteger(qty) || qty < 1) return false;
+    const cost = price * qty;
+    if (this.gold < cost) return false;
+    this.gold -= cost;
+    this.items[itemType] = (this.items[itemType] || 0) + qty;
+    return true;
+  }
+
   addGold(amount) {
     this.gold += amount;
   }
@@ -14195,3 +14231,5 @@ window.Codemon = Codemon;
 window.Player = Player;
 window.CODEMON_SPECIES = CODEMON_SPECIES;
 window.MOVE_POOL = MOVE_POOL;
+window.SHOP_PRICES = SHOP_PRICES;
+window.nextRestock = nextRestock;
