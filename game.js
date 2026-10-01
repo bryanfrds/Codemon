@@ -314,6 +314,8 @@ class CodemonGame {
     const enemy = new Codemon(species, enemyLevel);
 
     this.battle = new BattleState(this.player.getActiveCodemon(), enemy);
+    // The shop is closed during fights; shut it if autoplay walked into one.
+    document.getElementById('shopModal').classList.add('hidden');
     this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.switchView('battle');
     this.updateBattleUI();
@@ -410,6 +412,13 @@ class CodemonGame {
           Buy · ${price}g
         </button>`;
       row.querySelector('button').addEventListener('click', () => {
+        // Autoplay can start a fight while the shop is open; checking only on
+        // open let you keep buying mid-battle.
+        if (this.battle) {
+          document.getElementById('shopModal').classList.add('hidden');
+          this.setStatus('Finish the fight before going shopping.');
+          return;
+        }
         if (!this.player.buy(kind)) return;
         this.updateStats();
         this.saveGame();
