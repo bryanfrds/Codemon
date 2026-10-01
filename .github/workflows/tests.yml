@@ -1,0 +1,28 @@
+# Run the game-rule tests on every pull request and on pushes to main.
+# The tests use Node's built-in runner, so there's nothing to install.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  node-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run tests
+        # Passes with nothing to run until the first test file lands, rather
+        # than failing on an unmatched glob.
+        run: |
+          shopt -s nullglob
+          files=(tests/*.test.mjs)
+          if [ ${#files[@]} -eq 0 ]; then echo "No tests yet."; exit 0; fi
+          node --test "${files[@]}"
