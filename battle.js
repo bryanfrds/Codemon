@@ -9,6 +9,8 @@ class BattleState {
     this.enemySpeed = enemyCodemon.stats.spd;
     this.log = [];
     this.battleOver = false;
+    // Set by the game once a finished fight's ending is scheduled (checkBattleStatus).
+    this.resolved = false;
     this.winner = null;
     this.playerWon = false;
     // One entry per move used, for the renderer to animate in order. The rules
