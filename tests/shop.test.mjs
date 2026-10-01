@@ -7,8 +7,8 @@ import vm from 'node:vm';
 const ctx = { window: {} };   // creatures.js also hangs its classes off window
 vm.createContext(ctx);
 vm.runInContext(readFileSync(new URL('../creatures.js', import.meta.url), 'utf8') +
-  '\nthis.Player = Player; this.SHOP_PRICES = SHOP_PRICES;', ctx);
-const { Player, SHOP_PRICES } = ctx;
+  '\nthis.Player = Player; this.SHOP_PRICES = SHOP_PRICES; this.nextRestock = nextRestock;', ctx);
+const { Player, SHOP_PRICES, nextRestock } = ctx;
 
 test('buying takes the gold and adds the items', () => {
   const p = new Player();
@@ -42,4 +42,26 @@ test('bad purchases change nothing', () => {
 test('every item the shop sells is one the game already tracks', () => {
   const p = new Player();
   for (const kind of Object.keys(SHOP_PRICES)) assert.ok(kind in p.items, kind);
+});
+
+test('autoplay restocks potions first, then Pokéballs, up to two each', () => {
+  const p = new Player();
+  p.gold = 1000;
+  p.items.potion = 0;
+  p.items.pokeball = 0;
+  const bought = [];
+  for (let k; (k = nextRestock(p)); ) { assert.ok(p.buy(k)); bought.push(k); }
+  assert.deepEqual(bought, ['potion', 'potion', 'pokeball', 'pokeball']);
+  assert.equal(nextRestock(p), null);
+});
+
+test('autoplay buys nothing it cannot afford', () => {
+  const p = new Player();
+  p.items.potion = 0;
+  p.items.pokeball = 0;
+  p.gold = SHOP_PRICES.potion - 1;
+  assert.equal(nextRestock(p), null);
+  p.gold = SHOP_PRICES.potion;                 // a potion, but not a ball
+  p.items.potion = 2;
+  assert.equal(nextRestock(p), null);
 });
