@@ -14127,6 +14127,9 @@ class Codemon {
   evolveInto(species) {
     const hpFraction = this.hp > 0 ? this.currentHp / this.hp : 1;
     this.species = species;
+    // Never below the new species' starting threshold: loadGame raises anything
+    // lower to it, so the same CodeMon used to level slower after a reload.
+    this.expToLevel = Math.max(this.expToLevel, species.expToLevel);
     this.hp = this.getMaxHp();
     this.currentHp = Math.max(this.currentHp > 0 ? 1 : 0, Math.round(this.hp * hpFraction));
     this.stats = { atk: this.getAtk(), def: this.getDef(), sp: this.getSp(), spd: this.getSpd() };
