@@ -866,10 +866,8 @@ class CodemonGame {
       this.updateTeamUI();
       return;
     }
-    // Restock between fights: one item per step, potions first since running
-    // out of those is what ends an autoplay run.
-    const restock = ['potion', 'pokeball'].find(k => this.player.items[k] < 2
-                                                  && this.player.gold >= SHOP_PRICES[k]);
+    // Restock between fights, one item per step (see nextRestock).
+    const restock = nextRestock(this.player);
     if (restock && this.player.buy(restock)) {
       this.updateStats();
       this.saveGame();

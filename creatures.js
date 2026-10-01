@@ -14134,6 +14134,16 @@ const SHOP_PRICES = {
   potion: 25,
 };
 
+/**
+ * What autoplay should buy next between fights, or null. Potions first, since
+ * running out of those is what ends a run; then Pokéballs. Only tops each up to 2,
+ * and only when it can pay.
+ */
+function nextRestock(player) {
+  return ['potion', 'pokeball'].find(k => (player.items[k] || 0) < 2
+                                       && player.gold >= SHOP_PRICES[k]) || null;
+}
+
 class Player {
   constructor() {
     this.level = 1;
@@ -14222,3 +14232,4 @@ window.Player = Player;
 window.CODEMON_SPECIES = CODEMON_SPECIES;
 window.MOVE_POOL = MOVE_POOL;
 window.SHOP_PRICES = SHOP_PRICES;
+window.nextRestock = nextRestock;
