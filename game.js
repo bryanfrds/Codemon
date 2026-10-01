@@ -356,7 +356,13 @@ class CodemonGame {
     }
   }
 
+  /** True while a fight is on and can still take an action. */
+  battleActive() {
+    return !!this.battle && !this.battle.battleOver;
+  }
+
   showMoveSelect() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const moveList = document.getElementById('moveList');
     moveList.innerHTML = '';
 
@@ -430,6 +436,7 @@ class CodemonGame {
   }
 
   showSwitchTeam() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const moveList = document.getElementById('moveList');
     moveList.innerHTML = '';
 
@@ -456,6 +463,7 @@ class CodemonGame {
   }
 
   showItemMenu() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const moveList = document.getElementById('moveList');
     moveList.innerHTML = '';
 
@@ -478,6 +486,7 @@ class CodemonGame {
   }
 
   showCatchOptions() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const info = document.getElementById('catchCreatureInfo');
     const enemy = this.battle.enemyCodemon;
     const probability = this.battle.calculateCatchProbability('pokeball');
@@ -498,6 +507,7 @@ class CodemonGame {
   }
 
   confirmCatch() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const ballType = this.player.items.pokeball > 0 ? 'pokeball' : 'greatball';
     if (this.player.useItem(ballType)) {
       const success = this.battle.attemptCatch(ballType);
@@ -523,6 +533,7 @@ class CodemonGame {
   }
 
   attemptFlee() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const success = this.battle.flee();
     this.updateBattleUI();
 
