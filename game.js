@@ -837,9 +837,11 @@ class CodemonGame {
     if (this.currentView !== 'exploration') this.switchView('exploration');
     const fit = this.player.team.find(c => c.currentHp > 0);
     if (!fit) {
-      if (this.player.items.potion > 0) {
+      // Out of potions but not gold: buy one rather than stop.
+      if (this.player.items.potion > 0 || this.player.buy('potion')) {
         this.player.usePotion();
         this.updateTeamUI();
+        this.updateStats();
         this.setStatus('Autoplay: used a potion to get back up.');
       } else {
         this.setStatus('Autoplay stopped: the whole team has fainted.');
