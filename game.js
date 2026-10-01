@@ -832,6 +832,11 @@ class CodemonGame {
       return;
     }
 
+    // A finished fight stays in this.battle for the 2s before endBattle/blackOut
+    // run. Acting in that gap bought potions just before blackOut healed the team
+    // for free, and could start a new fight under the old one. Wait it out.
+    if (this.battle) return;
+
     // Out of battle: put the team back on its feet before picking another fight.
     // startEncounter only checks the team isn't empty, not that anyone can stand.
     if (this.currentView !== 'exploration') this.switchView('exploration');
