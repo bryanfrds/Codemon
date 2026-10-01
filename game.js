@@ -535,6 +535,10 @@ class CodemonGame {
   }
 
   checkBattleStatus() {
+    // Once a finished fight has its endBattle (and maybe blackOut) scheduled,
+    // further calls do nothing. A click during the 2s pause used to schedule a
+    // second round: double gold and EXP for a win, gold halved twice for a loss.
+    if (this.battle.resolved) return;
     if (this.battle.battleOver) {
       if (this.battle.playerWon) {
         // enemyCodemon.exp is the enemy's *earned* exp, which is always 0 for a
@@ -547,6 +551,7 @@ class CodemonGame {
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
         this.updateBattleUI();
         this.setStatus(`Won battle! Gained ${exp} EXP.`);
+        this.battle.resolved = true;
         setTimeout(() => this.endBattle(), 2000);
       } else {
         this.setStatus('Your CodeMon fainted!');
@@ -558,6 +563,7 @@ class CodemonGame {
           this.updateBattleUI();
         } else {
           this.setStatus('All CodeMons fainted!');
+          this.battle.resolved = true;
           setTimeout(() => { this.endBattle(); this.blackOut(); }, 2000);
         }
       }
