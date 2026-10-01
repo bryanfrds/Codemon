@@ -14126,8 +14126,8 @@ class Codemon {
   }
 }
 
-// Shop prices in gold. A win pays 30 and a catch 50, so a Pokéball costs a bit
-// more than one win and a potion a bit less.
+// Shop prices in gold. A win pays 50 and a catch 30, so a potion costs half a
+// win, a Pokéball a bit under one, and a Great Ball two.
 const SHOP_PRICES = {
   pokeball: 40,
   greatball: 100,
