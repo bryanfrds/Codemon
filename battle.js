@@ -90,6 +90,8 @@ class BattleState {
   }
 
   playerAttack(moveName) {
+    // Nothing happens in a finished fight; see checkBattleStatus in game.js.
+    if (this.battleOver) return false;
     if (!this.playerCodemon.moves.includes(moveName)) return false;
 
     this.performMove('player', moveName);
@@ -121,12 +123,14 @@ class BattleState {
   }
 
   playerUsePotion(amount = 20) {
+    if (this.battleOver) return;
     this.playerCodemon.heal(amount);
     this.log.push(`Used potion! ${this.playerCodemon.species.name} recovered ${amount} HP.`);
     this.enemyTurn();
   }
 
   playerSwitch(newCodemon) {
+    if (this.battleOver) return;
     this.playerCodemon = newCodemon;
     this.log.push(`Switched to ${newCodemon.species.name}!`);
     this.enemyTurn();
@@ -146,6 +150,7 @@ class BattleState {
   }
 
   attemptCatch(ballType = 'pokeball') {
+    if (this.battleOver) return false;
     const probability = this.calculateCatchProbability(ballType);
     const success = Math.random() * 100 < probability;
 
@@ -162,6 +167,7 @@ class BattleState {
   }
 
   flee() {
+    if (this.battleOver) return false;
     // Escape attempt based on speed
     const escapeChance = (this.playerSpeed / this.enemySpeed) * 100;
     const success = Math.random() * 100 < escapeChance;
