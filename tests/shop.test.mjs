@@ -32,7 +32,7 @@ test('bad purchases change nothing', () => {
   const p = new Player();
   p.gold = 1000;
   const items = JSON.stringify(p.items);
-  for (const [kind, qty] of [['antidote', 1], ['nonsense', 1], ['potion', 0], ['potion', -3], ['potion', 1.5]]) {
+  for (const [kind, qty] of [['antidote', 1], ['nonsense', 1], ['constructor', 1], ['toString', 1], ['potion', 0], ['potion', -3], ['potion', 1.5]]) {
     assert.equal(p.buy(kind, qty), false, `${kind} x${qty}`);
   }
   assert.equal(p.gold, 1000);

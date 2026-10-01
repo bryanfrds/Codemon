@@ -14196,8 +14196,11 @@ class Player {
    * or not enough gold.
    */
   buy(itemType, qty = 1) {
+    // hasOwn, not a plain lookup: SHOP_PRICES['constructor'] is a function, and
+    // buying it turned gold into NaN.
+    if (!Object.hasOwn(SHOP_PRICES, itemType)) return false;
     const price = SHOP_PRICES[itemType];
-    if (!price || !Number.isInteger(qty) || qty < 1) return false;
+    if (!Number.isInteger(qty) || qty < 1) return false;
     const cost = price * qty;
     if (this.gold < cost) return false;
     this.gold -= cost;
