@@ -153,6 +153,9 @@ class CodemonGame {
     document.getElementById('confirmCatchBtn').addEventListener('click', () => this.confirmCatch());
     document.getElementById('cancelCatchBtn').addEventListener('click', () => this.closeCatchModal());
     document.getElementById('closeMoveModalBtn').addEventListener('click', () => this.closeMoveModal());
+    document.getElementById('navShop').addEventListener('click', () => this.openShop());
+    document.getElementById('closeShopBtn').addEventListener('click', () =>
+      document.getElementById('shopModal').classList.add('hidden'));
 
     // Area buttons
     document.querySelectorAll('.area-btn').forEach((btn, idx) => {
@@ -380,6 +383,41 @@ class CodemonGame {
 
   closeMoveModal() {
     this.moveSelectModal.classList.add('hidden');
+  }
+
+  /** The shop. Closed during a fight, so you can't restock mid-battle. */
+  openShop() {
+    if (this.battle) {
+      this.setStatus('Finish the fight before going shopping.');
+      return;
+    }
+    this.renderShop();
+    document.getElementById('shopModal').classList.remove('hidden');
+  }
+
+  renderShop() {
+    const names = { pokeball: '🔴 Pokéball', greatball: '🟡 Great Ball', potion: '💊 Potion' };
+    document.getElementById('shopGold').textContent = this.player.gold;
+    const list = document.getElementById('shopList');
+    list.innerHTML = '';
+    for (const [kind, price] of Object.entries(SHOP_PRICES)) {
+      const row = document.createElement('div');
+      row.className = 'shop-row';
+      row.innerHTML = `
+        <span class="shop-item">${names[kind] || kind}</span>
+        <span class="shop-owned">have ${this.player.items[kind] || 0}</span>
+        <button class="btn btn-primary shop-buy"${this.player.gold < price ? ' disabled' : ''}>
+          Buy · ${price}g
+        </button>`;
+      row.querySelector('button').addEventListener('click', () => {
+        if (!this.player.buy(kind)) return;
+        this.updateStats();
+        this.saveGame();
+        this.setStatus(`Bought a ${(names[kind] || kind).replace(/^\S+ /, '')} for ${price} gold.`);
+        this.renderShop();
+      });
+      list.appendChild(row);
+    }
   }
 
   showSwitchTeam() {
