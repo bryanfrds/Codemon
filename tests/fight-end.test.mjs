@@ -81,3 +81,15 @@ test("an ending timer leaves alone a fight that isn't the one it was set for", (
   timers[0]();
   assert.deepEqual([game.ended, game.blackedOut], [0, 0]);
 });
+
+test('no new fight can start during the pause, so the blackout still happens', () => {
+  const game = gameInFight();
+  game.player.team[0].currentHp = 0;
+  game.battle.battleOver = true;
+  game.checkBattleStatus();
+  const lost = game.battle;
+  game.startEncounter();
+  assert.equal(game.battle, lost, 'still the lost fight');
+  timers[0]();
+  assert.equal(game.blackedOut, 1);
+});
