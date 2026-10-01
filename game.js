@@ -289,6 +289,12 @@ class CodemonGame {
   }
 
   startEncounter() {
+    // One fight at a time. During the 2s pause after a loss you could walk into
+    // a new fight, and the old fight's blackout then never happened.
+    if (this.battle) {
+      this.setStatus('Finish the current fight first.');
+      return;
+    }
     if (this.player.team.length === 0) {
       this.setStatus('No CodeMons to battle!');
       return;
@@ -356,7 +362,13 @@ class CodemonGame {
     }
   }
 
+  /** True while a fight is on and can still take an action. */
+  battleActive() {
+    return !!this.battle && !this.battle.battleOver;
+  }
+
   showMoveSelect() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const moveList = document.getElementById('moveList');
     moveList.innerHTML = '';
 
@@ -372,6 +384,8 @@ class CodemonGame {
         ${this.matchupNote(moveData)}
       `;
       btn.addEventListener('click', () => {
+        // The picker can still be open when the fight ends underneath it.
+        if (!this.battleActive()) { this.closeMoveModal(); return; }
         this.battle.playerAttack(move);
         this.closeMoveModal();
         this.updateBattleUI();
@@ -430,6 +444,7 @@ class CodemonGame {
   }
 
   showSwitchTeam() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const moveList = document.getElementById('moveList');
     moveList.innerHTML = '';
 
@@ -439,6 +454,7 @@ class CodemonGame {
       btn.className = 'move-btn';
       btn.textContent = `${codemon.species.name} (Lvl ${codemon.level})`;
       btn.addEventListener('click', () => {
+        if (!this.battleActive()) { this.closeMoveModal(); return; }
         if (idx !== 0) {
           this.player.switchCodemon(idx);
           this.battle.playerCodemon = this.player.getActiveCodemon();
@@ -456,6 +472,7 @@ class CodemonGame {
   }
 
   showItemMenu() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const moveList = document.getElementById('moveList');
     moveList.innerHTML = '';
 
@@ -464,6 +481,7 @@ class CodemonGame {
       btn.className = 'move-btn';
       btn.textContent = `Potion (${this.player.items.potion})`;
       btn.addEventListener('click', () => {
+        if (!this.battleActive()) { this.closeMoveModal(); return; }
         this.player.usePotion();
         this.battle.addLog('Used potion! Recovered 20 HP.');
         this.battle.enemyTurn();
@@ -478,6 +496,7 @@ class CodemonGame {
   }
 
   showCatchOptions() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const info = document.getElementById('catchCreatureInfo');
     const enemy = this.battle.enemyCodemon;
     const probability = this.battle.calculateCatchProbability('pokeball');
@@ -498,6 +517,7 @@ class CodemonGame {
   }
 
   confirmCatch() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const ballType = this.player.items.pokeball > 0 ? 'pokeball' : 'greatball';
     if (this.player.useItem(ballType)) {
       const success = this.battle.attemptCatch(ballType);
@@ -523,6 +543,7 @@ class CodemonGame {
   }
 
   attemptFlee() {
+    if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const success = this.battle.flee();
     this.updateBattleUI();
 
@@ -535,6 +556,10 @@ class CodemonGame {
   }
 
   checkBattleStatus() {
+    // Once a finished fight has its endBattle (and maybe blackOut) scheduled,
+    // further calls do nothing. A click during the 2s pause used to schedule a
+    // second round: double gold and EXP for a win, gold halved twice for a loss.
+    if (this.battle.resolved) return;
     if (this.battle.battleOver) {
       if (this.battle.playerWon) {
         // enemyCodemon.exp is the enemy's *earned* exp, which is always 0 for a
@@ -547,7 +572,10 @@ class CodemonGame {
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
         this.updateBattleUI();
         this.setStatus(`Won battle! Gained ${exp} EXP.`);
-        setTimeout(() => this.endBattle(), 2000);
+        this.battle.resolved = true;
+        const won = this.battle;
+        // Only end the fight this timer was set for, never a newer one.
+        setTimeout(() => { if (this.battle === won) this.endBattle(); }, 2000);
       } else {
         this.setStatus('Your CodeMon fainted!');
         const availableCodemon = this.player.team.find(c => c.currentHp > 0);
@@ -558,7 +586,13 @@ class CodemonGame {
           this.updateBattleUI();
         } else {
           this.setStatus('All CodeMons fainted!');
-          setTimeout(() => { this.endBattle(); this.blackOut(); }, 2000);
+          this.battle.resolved = true;
+          const lost = this.battle;
+          setTimeout(() => {
+            if (this.battle !== lost) return;
+            this.endBattle();
+            this.blackOut();
+          }, 2000);
         }
       }
     }
