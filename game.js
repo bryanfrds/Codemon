@@ -563,9 +563,8 @@ class CodemonGame {
    * Returns { from, into } if it evolved, otherwise null.
    */
   evolveIfReady(codemon) {
-    const from = codemon.species;
-    for (let into; (into = evolutionFor(codemon.species, codemon.level)); ) codemon.evolveInto(into);
-    if (codemon.species === from) return null;
+    const from = evolveFully(codemon);
+    if (!from) return null;
     this.player.pokedex.add(codemon.species.id);
     this.battle.addLog(`What? ${from.name} is evolving!`);
     this.battle.addLog(`${from.name} evolved into ${codemon.species.name}!`);

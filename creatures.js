@@ -14075,6 +14075,17 @@ for (const type of TYPE_CYCLE) {
   }
 }
 
+/**
+ * Evolve `codemon` as far as its level allows; a high-level catch can go
+ * straight through two stages. Returns the species it started as if it
+ * evolved, otherwise null.
+ */
+function evolveFully(codemon) {
+  const from = codemon.species;
+  for (let into; (into = evolutionFor(codemon.species, codemon.level)); ) codemon.evolveInto(into);
+  return codemon.species === from ? null : from;
+}
+
 /** The species this one evolves into at `level` or below, or null. */
 function evolutionFor(species, level) {
   const evo = EVOLUTIONS.get(species.id);
@@ -14282,4 +14293,5 @@ window.MOVE_POOL = MOVE_POOL;
 window.SHOP_PRICES = SHOP_PRICES;
 window.nextRestock = nextRestock;
 window.evolutionFor = evolutionFor;
+window.evolveFully = evolveFully;
 window.EVOLUTION_STAGE = EVOLUTION_STAGE;
