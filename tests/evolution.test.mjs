@@ -8,8 +8,9 @@ const ctx = { window: {} };   // creatures.js also hangs its classes off window
 vm.createContext(ctx);
 vm.runInContext(readFileSync(new URL('../creatures.js', import.meta.url), 'utf8') +
   '\nthis.CODEMON_SPECIES = CODEMON_SPECIES; this.Codemon = Codemon; this.EVOLUTIONS = EVOLUTIONS;' +
-  '\nthis.EVOLUTION_STAGE = EVOLUTION_STAGE; this.evolutionFor = evolutionFor; this.baseTotal = baseTotal;', ctx);
-const { CODEMON_SPECIES, Codemon, EVOLUTIONS, EVOLUTION_STAGE, evolutionFor, baseTotal } = ctx;
+  '\nthis.EVOLUTION_STAGE = EVOLUTION_STAGE; this.evolutionFor = evolutionFor; this.baseTotal = baseTotal;' +
+  '\nthis.evolveFully = evolveFully;', ctx);
+const { CODEMON_SPECIES, Codemon, EVOLUTIONS, EVOLUTION_STAGE, evolutionFor, baseTotal, evolveFully } = ctx;
 const byId = (id) => CODEMON_SPECIES.find(sp => sp.id === id);
 
 test('every evolution keeps the type and is at least as strong', () => {
@@ -66,4 +67,32 @@ test('a fainted CodeMon stays fainted when it evolves', () => {
   c.currentHp = 0;
   c.evolveInto(evolutionFor(c.species, 16));
   assert.equal(c.currentHp, 0);
+});
+
+test('a high-level catch evolves straight through both stages', () => {
+  const weak = CODEMON_SPECIES.find(sp => EVOLUTION_STAGE.get(sp.id) === 0);
+  const strong = EVOLUTIONS.get(EVOLUTIONS.get(weak.id).into.id).into;
+  const c = new Codemon(weak, 40);
+  assert.equal(evolveFully(c), weak, 'returns where it started');
+  assert.equal(c.species, strong);
+  assert.equal(evolveFully(c), null, 'nothing further');
+});
+
+test('below the level, evolveFully changes nothing', () => {
+  const c = new Codemon(CODEMON_SPECIES[0], 15);
+  assert.equal(evolveFully(c), null);
+  assert.equal(c.species, CODEMON_SPECIES[0]);
+});
+
+test("an evolved CodeMon's EXP threshold survives a reload unchanged", () => {
+  // loadGame rebuilds each CodeMon from its saved species and only keeps the
+  // saved expToLevel if it is at least that species' starting value.
+  for (const id of [1, 2, 5]) {
+    const c = new Codemon(CODEMON_SPECIES.find(sp => sp.id === id), 5);
+    while (c.level < 16) c.gainExp(c.expToLevel);
+    evolveFully(c);
+    const rebuilt = new Codemon(c.species, c.level);
+    const kept = c.expToLevel >= rebuilt.expToLevel ? c.expToLevel : rebuilt.expToLevel;
+    assert.equal(kept, c.expToLevel, c.species.name);
+  }
 });
