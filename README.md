@@ -6,6 +6,10 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 ![Tech](https://img.shields.io/badge/Tech-HTML5%20Canvas-blue)
 ![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(Pure%20Vanilla)-success)
 
+**[▶ Play it in your browser](https://bryanfrds.github.io/Codemon/)**
+
+![CodeMon on autoplay: exploring, fighting with type matchups, and catching](docs/gameplay.gif)
+
 ---
 
 ## 🎮 Features
@@ -40,7 +44,9 @@ So bug moves hit code creatures for 1.5× damage and flow creatures for about tw
 
 ## 🚀 How to Run
 
-No build step and no dependencies. Either open the file directly:
+Play the live version at **https://bryanfrds.github.io/Codemon/**. Your progress saves in that browser.
+
+To run it yourself there's no build step and no dependencies. Either open the file directly:
 
 ```bash
 open index.html
