@@ -44,7 +44,9 @@ So bug moves hit code creatures for 1.5× damage and flow creatures for about tw
 
 ## 🚀 How to Run
 
-No build step and no dependencies. Either open the file directly:
+Play the live version at **https://bryanfrds.github.io/Codemon/**. Your progress saves in that browser.
+
+To run it yourself there's no build step and no dependencies. Either open the file directly:
 
 ```bash
 open index.html
