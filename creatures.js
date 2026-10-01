@@ -14119,6 +14119,20 @@ class Codemon {
     return Math.floor((2 * this.species.baseSpd * this.level) / 100 + 5);
   }
 
+  /**
+   * Turn into `species`, keeping level and progress. Stats and moves come from
+   * the new species; HP keeps the same fraction of the (higher) new maximum, so
+   * evolving mid-adventure doesn't hand out a free heal.
+   */
+  evolveInto(species) {
+    const hpFraction = this.hp > 0 ? this.currentHp / this.hp : 1;
+    this.species = species;
+    this.hp = this.getMaxHp();
+    this.currentHp = Math.max(this.currentHp > 0 ? 1 : 0, Math.round(this.hp * hpFraction));
+    this.stats = { atk: this.getAtk(), def: this.getDef(), sp: this.getSp(), spd: this.getSpd() };
+    this.moves = [...species.moves];
+  }
+
   learnMove(moveName) {
     if (this.moves.length < 4 && !this.moves.includes(moveName)) {
       this.moves.push(moveName);
