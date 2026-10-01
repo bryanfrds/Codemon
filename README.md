@@ -24,6 +24,7 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 - **Animated battles** — attacks lunge, hits flash and shake with sparks in the move's type colour, damage numbers float up, and HP bars drop when the hit lands.
 - **Catching** with Pokéballs and Great Balls; weaken a CodeMon first for better odds.
 - **Items** — potions to heal mid-fight.
+- **Evolution** — win a fight at level 16 and your CodeMon evolves into a stronger one of the same type, then again at 32. It flashes white as it changes, and evolved CodeMon keep a soft glow in their type's colour, brighter at the final stage.
 - **Shop** — spend the gold you win on Pokéballs (40), Great Balls (100) and Potions (25). It's closed during fights. Autoplay restocks on its own when it runs low.
 - **Autoplay** — explores, fights, heals and catches on its own.
 - **Pokédex** of everything you've caught.

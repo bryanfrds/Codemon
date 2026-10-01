@@ -30,6 +30,8 @@ const AREAS = [
 const SAVE_KEY = 'codemonSave';
 const SAVE_VERSION = 1;          // bump if the saved shape changes
 
+const EVOLVE_MS = 1800;   // length of the evolution animation
+
 class CodemonGame {
   constructor() {
     this.player = new Player();
@@ -555,6 +557,22 @@ class CodemonGame {
     }
   }
 
+  /**
+   * Evolve `codemon` as far as its level allows (a high-level catch can skip a
+   * stage), log it, add the new form to the Pokedex and start the animation.
+   * Returns { from, into } if it evolved, otherwise null.
+   */
+  evolveIfReady(codemon) {
+    const from = evolveFully(codemon);
+    if (!from) return null;
+    this.player.pokedex.add(codemon.species.id);
+    this.battle.addLog(`What? ${from.name} is evolving!`);
+    this.battle.addLog(`${from.name} evolved into ${codemon.species.name}!`);
+    // t0 is set once the knockout has finished playing (see renderBattle).
+    this.fx.evolution = { from, into: codemon.species, t0: null };
+    return { from, into: codemon.species };
+  }
+
   checkBattleStatus() {
     // Once a finished fight has its endBattle (and maybe blackOut) scheduled,
     // further calls do nothing. A click during the 2s pause used to schedule a
@@ -570,12 +588,17 @@ class CodemonGame {
         this.battle.playerCodemon.gainExp(exp);
         this.player.addGold(50);
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
+        const evolved = this.evolveIfReady(this.battle.playerCodemon);
         this.updateBattleUI();
-        this.setStatus(`Won battle! Gained ${exp} EXP.`);
+        this.setStatus(evolved
+          ? `Won battle! ${evolved.from.name} evolved into ${evolved.into.name}!`
+          : `Won battle! Gained ${exp} EXP.`);
         this.battle.resolved = true;
         const won = this.battle;
-        // Only end the fight this timer was set for, never a newer one.
-        setTimeout(() => { if (this.battle === won) this.endBattle(); }, 2000);
+        // Only end the fight this timer was set for, never a newer one. A little
+        // longer when there's an evolution to watch.
+        setTimeout(() => { if (this.battle === won) this.endBattle(); },
+                   evolved ? EVOLVE_MS + 1400 : 2000);   // + time for the last hit to play
       } else {
         this.setStatus('Your CodeMon fainted!');
         const availableCodemon = this.player.team.find(c => c.currentHp > 0);
@@ -707,6 +730,7 @@ class CodemonGame {
 
   endBattle() {
     this.battle = null;
+    this.fx.evolution = null;
     this.updateTeamUI();
     this.updateStats();
     this.switchView('exploration');
@@ -1024,9 +1048,37 @@ class CodemonGame {
   }
 
   typeColor(move) {
-    const t = (MOVE_POOL[move] || {}).type;
+    return this.typeColorOf((MOVE_POOL[move] || {}).type);
+  }
+
+  typeColorOf(type) {
     return { bug: '#7ed957', code: '#ff8c38', memory: '#ff8fd0', logic: '#a59bff',
-             flow: '#38bdf8' }[t] || '#f1f5f9';
+             flow: '#38bdf8' }[type] || '#f1f5f9';
+  }
+
+  /** A soft round glow behind a creature; `strength` is its peak opacity. */
+  drawAura(ctx, x, y, size, color, strength) {
+    if (strength <= 0) return;
+    const r = size * 0.62;
+    const g = ctx.createRadialGradient(x, y, size * 0.12, x, y, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, strength);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Evolved CodeMon glow softly in their type's colour, brighter at stage 2. */
+  evolvedGlow(species, now) {
+    const stage = EVOLUTION_STAGE.get(species.id) || 0;
+    if (!stage) return 0;
+    const pulse = 0.85 + 0.15 * Math.sin(now / 420);
+    return (stage === 1 ? 0.55 : 0.8) * pulse;
   }
 
   /**
@@ -1208,15 +1260,36 @@ class CodemonGame {
     });
 
     platform(ex, ey + enemySize * 0.40, enemySize * 0.40);
+    const foe = this.battle.enemyCodemon.species;
+    this.drawAura(ctx, ex + fx.enemy.dx, ey + fx.enemy.dy, enemySize,
+                  this.typeColorOf(foe.type), this.evolvedGlow(foe, now));
     ctx.filter = fx.enemy.filter;
     SPRITES.draw(ctx, this.battle.enemyCodemon.species,
                  ex + fx.enemy.dx, ey + fx.enemy.dy, enemySize);
     ctx.filter = 'none';
 
     platform(ax, ay + allySize * 0.38, allySize * 0.40);
-    ctx.filter = fx.player.filter;
-    SPRITES.draw(ctx, this.battle.playerCodemon.species,
-                 ax + fx.player.dx, ay + fx.player.dy, allySize);
+    let mine = this.battle.playerCodemon.species;
+    let filter = fx.player.filter;
+    // Evolution: the old form swells with white light, flashes, and the new
+    // form appears out of the glow, which then settles into its own colour.
+    const evo = this.fx.evolution;
+    if (evo && evo.t0 === null && !this.fxBusy()) evo.t0 = now;   // after the last hit lands
+    const ep = !evo ? 1 : evo.t0 === null ? 0 : (now - evo.t0) / EVOLVE_MS;
+    if (evo && ep >= 1) this.fx.evolution = null;
+    if (ep < 1) {
+      if (ep < 0.5) mine = evo.from;
+      const light = Math.sin(ep * Math.PI);                  // 0 -> 1 -> 0
+      this.drawAura(ctx, ax + fx.player.dx, ay + fx.player.dy, allySize * (1 + light * 0.8),
+                    '#ffffff', light * 1.2);
+      const glowFilter = `brightness(${1 + light * 2.5}) saturate(${1 - light * 0.8})`;
+      // Keep any hit flash rather than overwriting it.
+      filter = filter && filter !== 'none' ? `${filter} ${glowFilter}` : glowFilter;
+    }
+    this.drawAura(ctx, ax + fx.player.dx, ay + fx.player.dy, allySize,
+                  this.typeColorOf(mine.type), this.evolvedGlow(mine, now));
+    ctx.filter = filter;
+    SPRITES.draw(ctx, mine, ax + fx.player.dx, ay + fx.player.dy, allySize);
     ctx.filter = 'none';
 
     this.drawFxOverlay(ctx, now);

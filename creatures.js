@@ -14050,6 +14050,48 @@ const MOVE_POOL = {
   'Harden': { power: 0, accuracy: 100, type: 'normal', category: 'status', isDefensive: true }
 };
 
+// Evolution. The sprite pack has no evolution lines, so a CodeMon evolves into a
+// different, stronger species of its own type. Each type's 200 species are
+// sorted by total base stats and cut into weak, middle and strong thirds; the
+// k-th weakest of each third form one chain: weak[k] -> middle[k] -> strong[k].
+// That makes every step a real jump in power, not a swap with a near-twin.
+const EVOLVE_LEVELS = [16, 32];   // weak -> middle, middle -> strong
+const baseTotal = (sp) => sp.baseHp + sp.baseAtk + sp.baseDef + sp.baseSp + sp.baseSpd;
+
+/** species id -> { into, level } for every species that evolves, and its stage. */
+const EVOLUTIONS = new Map();
+const EVOLUTION_STAGE = new Map();   // species id -> 0 (base), 1 or 2
+for (const type of TYPE_CYCLE) {
+  const ranked = CODEMON_SPECIES.filter(sp => sp.type === type)
+    .sort((a, b) => baseTotal(a) - baseTotal(b) || a.id - b.id);
+  const third = Math.floor(ranked.length / 3);
+  for (let k = 0; k < third; k++) {
+    const [weak, middle, strong] = [ranked[k], ranked[third + k], ranked[2 * third + k]];
+    EVOLUTIONS.set(weak.id, { into: middle, level: EVOLVE_LEVELS[0] });
+    EVOLUTIONS.set(middle.id, { into: strong, level: EVOLVE_LEVELS[1] });
+    EVOLUTION_STAGE.set(weak.id, 0);
+    EVOLUTION_STAGE.set(middle.id, 1);
+    EVOLUTION_STAGE.set(strong.id, 2);
+  }
+}
+
+/**
+ * Evolve `codemon` as far as its level allows; a high-level catch can go
+ * straight through two stages. Returns the species it started as if it
+ * evolved, otherwise null.
+ */
+function evolveFully(codemon) {
+  const from = codemon.species;
+  for (let into; (into = evolutionFor(codemon.species, codemon.level)); ) codemon.evolveInto(into);
+  return codemon.species === from ? null : from;
+}
+
+/** The species this one evolves into at `level` or below, or null. */
+function evolutionFor(species, level) {
+  const evo = EVOLUTIONS.get(species.id);
+  return evo && level >= evo.level ? evo.into : null;
+}
+
 class Codemon {
   constructor(species, level = 1) {
     this.species = species;
@@ -14086,6 +14128,23 @@ class Codemon {
 
   getSpd() {
     return Math.floor((2 * this.species.baseSpd * this.level) / 100 + 5);
+  }
+
+  /**
+   * Turn into `species`, keeping level and progress. Stats and moves come from
+   * the new species; HP keeps the same fraction of the (higher) new maximum, so
+   * evolving mid-adventure doesn't hand out a free heal.
+   */
+  evolveInto(species) {
+    const hpFraction = this.hp > 0 ? this.currentHp / this.hp : 1;
+    this.species = species;
+    // Never below the new species' starting threshold: loadGame raises anything
+    // lower to it, so the same CodeMon used to level slower after a reload.
+    this.expToLevel = Math.max(this.expToLevel, species.expToLevel);
+    this.hp = this.getMaxHp();
+    this.currentHp = Math.max(this.currentHp > 0 ? 1 : 0, Math.round(this.hp * hpFraction));
+    this.stats = { atk: this.getAtk(), def: this.getDef(), sp: this.getSp(), spd: this.getSpd() };
+    this.moves = [...species.moves];
   }
 
   learnMove(moveName) {
@@ -14233,3 +14292,6 @@ window.CODEMON_SPECIES = CODEMON_SPECIES;
 window.MOVE_POOL = MOVE_POOL;
 window.SHOP_PRICES = SHOP_PRICES;
 window.nextRestock = nextRestock;
+window.evolutionFor = evolutionFor;
+window.evolveFully = evolveFully;
+window.EVOLUTION_STAGE = EVOLUTION_STAGE;
