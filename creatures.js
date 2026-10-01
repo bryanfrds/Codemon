@@ -14126,6 +14126,14 @@ class Codemon {
   }
 }
 
+// Shop prices in gold. A win pays 30 and a catch 50, so a Pokéball costs a bit
+// more than one win and a potion a bit less.
+const SHOP_PRICES = {
+  pokeball: 40,
+  greatball: 100,
+  potion: 25,
+};
+
 class Player {
   constructor() {
     this.level = 1;
@@ -14182,6 +14190,21 @@ class Player {
     return false;
   }
 
+  /**
+   * Buy `qty` of an item from the shop. Returns false, and changes nothing, for
+   * an item the shop doesn't sell, a quantity that isn't a positive whole number,
+   * or not enough gold.
+   */
+  buy(itemType, qty = 1) {
+    const price = SHOP_PRICES[itemType];
+    if (!price || !Number.isInteger(qty) || qty < 1) return false;
+    const cost = price * qty;
+    if (this.gold < cost) return false;
+    this.gold -= cost;
+    this.items[itemType] = (this.items[itemType] || 0) + qty;
+    return true;
+  }
+
   addGold(amount) {
     this.gold += amount;
   }
@@ -14195,3 +14218,4 @@ window.Codemon = Codemon;
 window.Player = Player;
 window.CODEMON_SPECIES = CODEMON_SPECIES;
 window.MOVE_POOL = MOVE_POOL;
+window.SHOP_PRICES = SHOP_PRICES;
