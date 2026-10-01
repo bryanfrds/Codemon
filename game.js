@@ -1078,7 +1078,7 @@ class CodemonGame {
     const stage = EVOLUTION_STAGE.get(species.id) || 0;
     if (!stage) return 0;
     const pulse = 0.85 + 0.15 * Math.sin(now / 420);
-    return (stage === 1 ? 0.28 : 0.45) * pulse;
+    return (stage === 1 ? 0.55 : 0.8) * pulse;
   }
 
   /**
