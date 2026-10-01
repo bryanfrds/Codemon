@@ -511,6 +511,9 @@ class CodemonGame {
         this.endBattle();
       } else {
         this.closeCatchModal();
+        // A failed throw gives the foe a free hit, which can knock your CodeMon
+        // out. Without this the fight never ended: no switch, no blackout.
+        this.checkBattleStatus();
       }
     }
   }
@@ -525,6 +528,9 @@ class CodemonGame {
 
     if (success) {
       this.endBattle();
+    } else {
+      // Same as a failed catch: the foe's free hit may have ended the fight.
+      this.checkBattleStatus();
     }
   }
 
