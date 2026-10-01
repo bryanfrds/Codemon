@@ -1024,9 +1024,37 @@ class CodemonGame {
   }
 
   typeColor(move) {
-    const t = (MOVE_POOL[move] || {}).type;
+    return this.typeColorOf((MOVE_POOL[move] || {}).type);
+  }
+
+  typeColorOf(type) {
     return { bug: '#7ed957', code: '#ff8c38', memory: '#ff8fd0', logic: '#a59bff',
-             flow: '#38bdf8' }[t] || '#f1f5f9';
+             flow: '#38bdf8' }[type] || '#f1f5f9';
+  }
+
+  /** A soft round glow behind a creature; `strength` is its peak opacity. */
+  drawAura(ctx, x, y, size, color, strength) {
+    if (strength <= 0) return;
+    const r = size * 0.62;
+    const g = ctx.createRadialGradient(x, y, size * 0.12, x, y, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, strength);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Evolved CodeMon glow softly in their type's colour, brighter at stage 2. */
+  evolvedGlow(species, now) {
+    const stage = EVOLUTION_STAGE.get(species.id) || 0;
+    if (!stage) return 0;
+    const pulse = 0.85 + 0.15 * Math.sin(now / 420);
+    return (stage === 1 ? 0.28 : 0.45) * pulse;
   }
 
   /**
@@ -1208,12 +1236,18 @@ class CodemonGame {
     });
 
     platform(ex, ey + enemySize * 0.40, enemySize * 0.40);
+    const foe = this.battle.enemyCodemon.species;
+    this.drawAura(ctx, ex + fx.enemy.dx, ey + fx.enemy.dy, enemySize,
+                  this.typeColorOf(foe.type), this.evolvedGlow(foe, now));
     ctx.filter = fx.enemy.filter;
     SPRITES.draw(ctx, this.battle.enemyCodemon.species,
                  ex + fx.enemy.dx, ey + fx.enemy.dy, enemySize);
     ctx.filter = 'none';
 
     platform(ax, ay + allySize * 0.38, allySize * 0.40);
+    const mine = this.battle.playerCodemon.species;
+    this.drawAura(ctx, ax + fx.player.dx, ay + fx.player.dy, allySize,
+                  this.typeColorOf(mine.type), this.evolvedGlow(mine, now));
     ctx.filter = fx.player.filter;
     SPRITES.draw(ctx, this.battle.playerCodemon.species,
                  ax + fx.player.dx, ay + fx.player.dy, allySize);
