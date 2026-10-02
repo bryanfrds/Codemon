@@ -14099,11 +14099,16 @@ const GUARDIAN_LEVELS = [12, 22, 32, 42];
 const GUARDIAN_HP_BONUS = 1.5;     // times a wild CodeMon's HP at that level
 const GUARDIAN_GOLD = 200;
 
-/** The guardian's species for an area whose wild CodeMon are ids lo..hi. */
+/**
+ * The guardian's species for an area whose wild CodeMon are ids lo..hi: the most
+ * evolved stage found there (the first area has no final stages), and of those
+ * the one with the highest base stats.
+ */
 function guardianSpecies(lo, hi) {
+  const rank = (sp) => (EVOLUTION_STAGE.get(sp.id) || 0) * 10000 + baseTotal(sp);
   return CODEMON_SPECIES
-    .filter(sp => sp.id >= lo && sp.id <= hi && EVOLUTION_STAGE.get(sp.id) === 2)
-    .reduce((best, sp) => (!best || baseTotal(sp) > baseTotal(best) ? sp : best), null);
+    .filter(sp => sp.id >= lo && sp.id <= hi)
+    .reduce((best, sp) => (!best || rank(sp) > rank(best) ? sp : best), null);
 }
 
 /** Area 0 is always open; any other needs the previous area's guardian beaten. */
