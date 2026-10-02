@@ -14093,8 +14093,8 @@ function evolutionFor(species, level) {
 }
 
 // Area guardians. Each area has one: beat it to open the next area. The
-// guardian is the strongest final-stage CodeMon among that area's wild ones, at
-// a fixed level, and it's tougher than a wild CodeMon of the same level.
+// guardian is the most evolved, strongest CodeMon among that area's wild ones,
+// at a fixed level, and it's tougher than a wild CodeMon of the same level.
 const GUARDIAN_LEVELS = [12, 22, 32, 42];
 const GUARDIAN_HP_BONUS = 1.5;     // times a wild CodeMon's HP at that level
 const GUARDIAN_GOLD = 200;
