@@ -278,6 +278,8 @@ class CodemonGame {
       return;
     }
     this.currentArea = areaIdx;
+    // Choosing an area yourself cancels autoplay's pending move to a new one.
+    this.justOpenedArea = false;
     const area = AREAS[areaIdx];
     document.getElementById('areaName').textContent = area.name;
     document.getElementById('areaDesc').textContent = area.desc;
