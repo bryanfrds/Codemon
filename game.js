@@ -157,6 +157,7 @@ class CodemonGame {
     document.getElementById('cancelCatchBtn').addEventListener('click', () => this.closeCatchModal());
     document.getElementById('closeMoveModalBtn').addEventListener('click', () => this.closeMoveModal());
     document.getElementById('navShop').addEventListener('click', () => this.openShop());
+    document.getElementById('navGuardian').addEventListener('click', () => this.challengeGuardian());
     document.getElementById('closeShopBtn').addEventListener('click', () =>
       document.getElementById('shopModal').classList.add('hidden'));
 
@@ -1010,6 +1011,21 @@ class CodemonGame {
       this.updateTeamUI();
       return;
     }
+    // Guardians: take this area's on once the lead has reached its level and has
+    // most of its HP (only the lead: fainted backups only heal on a blackout, so
+    // waiting for the whole team could wait forever). After a win, move on.
+    const area = this.currentArea;
+    if (!this.guardiansBeaten.includes(area)) {
+      const lead = this.player.getActiveCodemon();
+      if (lead.level >= GUARDIAN_LEVELS[area] && lead.currentHp >= lead.hp * 0.7) {
+        this.challengeGuardian();
+        return;
+      }
+    } else if (area + 1 < AREAS.length && isAreaOpen(this.guardiansBeaten, area + 1)) {
+      this.changeArea(area + 1);
+      return;
+    }
+
     // Restock between fights, one item per step (see nextRestock).
     const restock = nextRestock(this.player);
     if (restock && this.player.buy(restock)) {
