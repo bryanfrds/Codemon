@@ -38,6 +38,7 @@ class CodemonGame {
     this.battle = null;
     this.currentView = 'exploration';
     this.currentArea = 0;
+    this.guardiansBeaten = [];   // areas whose guardian is beaten (opens the next)
     this.playerPos = { x: 250, y: 200 };      // where the sprite is drawn
     this.playerTarget = { x: 250, y: 200 };   // where it's walking to
     this.facing = 1;                          // 1 = right, -1 = left
@@ -166,6 +167,7 @@ class CodemonGame {
   }
 
   startGame() {
+    this.updateAreaButtons();   // a new game starts with only the first area open
     // A saved run picks up where it left off; only a new one gets the picker.
     if (this.loadGame()) {
       this.updateTeamUI();
@@ -255,7 +257,20 @@ class CodemonGame {
     }
   }
 
+  /** Lock icons on areas whose way in hasn't been opened yet. */
+  updateAreaButtons() {
+    document.querySelectorAll('.area-btn').forEach((btn, idx) => {
+      const open = isAreaOpen(this.guardiansBeaten, idx);
+      btn.classList.toggle('locked', !open);
+      btn.title = open ? '' : `Beat the ${AREAS[idx - 1].name} guardian to open`;
+    });
+  }
+
   changeArea(areaIdx) {
+    if (!isAreaOpen(this.guardiansBeaten, areaIdx)) {
+      this.setStatus(`Locked. Beat the guardian of ${AREAS[areaIdx - 1].name} first.`);
+      return;
+    }
     this.currentArea = areaIdx;
     const area = AREAS[areaIdx];
     document.getElementById('areaName').textContent = area.name;
@@ -640,6 +655,7 @@ class CodemonGame {
       items: this.player.items,
       pokedex: [...this.player.pokedex],
       area: this.currentArea,
+      guardiansBeaten: this.guardiansBeaten,
       team: this.player.team.map(c => ({
         species: c.species.id, level: c.level, exp: c.exp,
         expToLevel: c.expToLevel, hp: c.currentHp,
@@ -704,9 +720,18 @@ class CodemonGame {
       this.player.pokedex = new Set(
         [...dex, ...team.map(c => c.species.id)].filter(id => speciesById(id)));
 
-      if (Number.isInteger(data.area) && data.area >= 0 && data.area < AREAS.length) {
-        this.changeArea(data.area);
+      // Guardians beaten: area numbers only, each once. A save from before
+      // guardians existed counts every area below its own as beaten, so nobody
+      // is locked out of somewhere they already were.
+      const area = Number.isInteger(data.area) && data.area >= 0 && data.area < AREAS.length ? data.area : 0;
+      if (Array.isArray(data.guardiansBeaten)) {
+        this.guardiansBeaten = [...new Set(data.guardiansBeaten
+          .filter(a => Number.isInteger(a) && a >= 0 && a < AREAS.length))];
+      } else {
+        this.guardiansBeaten = Array.from({ length: area }, (_, i) => i);
       }
+      this.updateAreaButtons();
+      this.changeArea(isAreaOpen(this.guardiansBeaten, area) ? area : 0);
       return true;
     } catch (e) {
       return false;
