@@ -35,6 +35,8 @@ function makeGame(level = 50) {
   game.player.team.push(new Codemon(CODEMON_SPECIES[0], level));
   game.currentArea = 0;
   game.guardiansBeaten = [];
+  game.guardianRetryLevel = {};
+  game.justOpenedArea = false;
   game.status = '';
   game.setStatus = (m) => { game.status = m; };
   for (const m of ['updateBattleUI', 'updateTeamUI', 'updateStats', 'switchView', 'saveGame']) game[m] = () => {};
@@ -82,6 +84,7 @@ test('a guardian is tougher than a wild CodeMon, and cannot be caught or fled fr
   assert.equal(game.battle.guardian, true);
   assert.equal(g.level, GUARDIAN_LEVELS[0]);
   assert.ok(g.hp > new Codemon(g.species, g.level).hp);
+  assert.equal(g.currentHp, g.hp, 'it starts at full (boosted) HP');
   const balls = game.player.items.pokeball;
   game.confirmCatch();
   game.attemptFlee();
@@ -91,6 +94,8 @@ test('a guardian is tougher than a wild CodeMon, and cannot be caught or fled fr
 
 test('beating the guardian opens the next area and pays out', () => {
   const game = makeGame();
+  game.updateAreaButtons();
+  assert.equal(areaButtons[1].classList.contains('locked'), true);
   game.challengeGuardian();
   const gold = game.player.gold;
   game.battle.enemyCodemon.currentHp = 0;
@@ -130,9 +135,40 @@ test('autoplay takes on the guardian at its level, then moves to the opened area
   assert.equal(ready.challenged, true);
 
   ready.guardiansBeaten = [0];
+  ready.justOpenedArea = true;                   // as beatGuardian leaves it
   ready.changeArea = (a) => { ready.movedTo = a; };
   ready.autoPlayStep();
   assert.equal(ready.movedTo, 1);
+  assert.equal(ready.justOpenedArea, false);
+});
+
+test("autoplay stays in an earlier area the player walked back to", () => {
+  const game = makeGame();
+  Object.assign(game, { autoPlay: true, fxBusy: () => false, currentView: 'exploration' });
+  game.guardiansBeaten = [0, 1];
+  game.currentArea = 0;
+  game.changeArea = (a) => { game.movedTo = a; };
+  for (let i = 0; i < 10; i++) game.autoPlayStep();
+  assert.equal(game.movedTo, undefined);
+});
+
+test('after losing to a guardian, autoplay waits until the lead is 2 levels stronger', () => {
+  const game = makeGame(GUARDIAN_LEVELS[0]);
+  Object.assign(game, { autoPlay: true, fxBusy: () => false, currentView: 'exploration' });
+  game.challengeGuardian();
+  game.player.team[0].currentHp = 0;              // the lead goes down; no backup
+  game.battle.battleOver = true;
+  game.battle.playerWon = false;
+  game.checkBattleStatus();
+  game.battle = null;                             // the blackout timer has run
+  game.player.team[0].currentHp = game.player.team[0].hp;   // and healed the team
+  let challenges = 0;
+  game.challengeGuardian = () => { challenges++; };
+  for (let i = 0; i < 10; i++) game.autoPlayStep();
+  assert.equal(challenges, 0, 'not straight back in at the same level');
+  game.player.team[0].level += 2;
+  game.autoPlayStep();
+  assert.equal(challenges, 1);
 });
 
 const saveWith = (extra) => ctx.localStorage.setItem('codemonSave', JSON.stringify({
@@ -155,11 +191,14 @@ test("a save from before guardians keeps the areas it already reached", () => {
   assert.equal(game.currentArea, 2);
 });
 
-test('a save sitting in a locked area starts back in the first one', () => {
+test('a save sitting in a locked area starts back in the first one, and is saved again', () => {
   const game = makeGame();
+  game.saveGame = () => { game.saved = true; };
   saveWith({ area: 3, guardiansBeaten: [] });
   assert.ok(game.loadGame());
   assert.equal(game.currentArea, 0);
+  assert.equal(elements.areaName.textContent, AREAS[0].name);
+  assert.equal(game.saved, true, 'loading writes the save back (the healed-blackout fix relies on it)');
 });
 
 test('saving writes the beaten guardians', () => {
@@ -184,4 +223,59 @@ test("autoplay keeps attacking a weak guardian instead of trying to catch it", (
   } finally { ctx.r = realRandom; vm.runInContext('Math.random = r', ctx); }
   assert.ok(!game.battle || game.battle.battleOver || g.currentHp < Math.ceil(g.hp * 0.3),
             'it should have hit the guardian');
+});
+
+test('wild CodeMon are not guardians, so they can still be caught', () => {
+  const game = makeGame();
+  CodemonGame.prototype.startEncounter.call(game);
+  assert.equal(game.battle.guardian, false);
+});
+
+test("beating the last area's guardian says every area is yours", () => {
+  const game = makeGame();
+  game.guardiansBeaten = [0, 1, 2];
+  game.currentArea = 3;
+  game.challengeGuardian();
+  game.battle.battleOver = true;
+  game.battle.playerWon = true;
+  game.checkBattleStatus();
+  assert.match(game.status, /Every area is yours/);
+  assert.equal(game.justOpenedArea, false, 'nowhere further to go');
+});
+
+test("the guardian button refuses mid-fight, with a fainted team, and before a starter", () => {
+  const game = makeGame();
+  game.challengeGuardian();
+  const first = game.battle;
+  game.challengeGuardian();
+  assert.equal(game.battle, first, 'no second fight on top');
+  game.battle = null;
+  game.player.team[0].currentHp = 0;
+  game.challengeGuardian();
+  assert.equal(game.battle, null);
+  game.player.team = [];
+  game.challengeGuardian();
+  assert.match(game.status, /starter/);
+});
+
+test('the four guardians are Daemon, Nandmon, Inferusk and Pagely', () => {
+  const names = AREAS.map(a => guardianSpecies(a.possibleEncounters[0], a.possibleEncounters.at(-1)).name);
+  assert.deepEqual([...names], ['Daemon', 'Nandmon', 'Inferusk', 'Pagely']);
+});
+
+test('the catch menu says guardians cannot be caught', () => {
+  const game = makeGame();
+  game.challengeGuardian();
+  game.catchModal = elements.catchModal = { classList: { remove() { game.catchOpened = true; } } };
+  game.showCatchOptions();
+  assert.equal(game.catchOpened, undefined);
+  assert.match(game.status, /can't be caught/);
+});
+
+test('loading a save shows the right locks', () => {
+  const game = makeGame();
+  areaButtons.forEach(b => b.classList.remove('locked'));
+  saveWith({ area: 0, guardiansBeaten: [0] });
+  assert.ok(game.loadGame());
+  assert.deepEqual(areaButtons.map(b => b.classList.contains('locked')), [false, false, true, true]);
 });
