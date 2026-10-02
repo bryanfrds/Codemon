@@ -279,3 +279,26 @@ test('loading a save shows the right locks', () => {
   assert.ok(game.loadGame());
   assert.deepEqual(areaButtons.map(b => b.classList.contains('locked')), [false, false, true, true]);
 });
+
+test("changing area yourself after a guardian win cancels autoplay's move", () => {
+  const game = makeGame();
+  game.guardiansBeaten = [0, 1];
+  game.currentArea = 1;
+  game.justOpenedArea = true;                    // just beat area 1's guardian
+  game.changeArea(0);                            // but walked back to area 0
+  Object.assign(game, { autoPlay: true, fxBusy: () => false, currentView: 'exploration' });
+  const moves = [];
+  game.changeArea = (a) => moves.push(a);
+  game.autoPlayStep();
+  assert.deepEqual(moves, []);
+});
+
+test("autoplay won't take on a guardian with a hurt lead", () => {
+  const game = makeGame(GUARDIAN_LEVELS[0]);
+  Object.assign(game, { autoPlay: true, fxBusy: () => false, currentView: 'exploration' });
+  game.player.items.potion = 0;                  // no healing up first
+  game.player.team[0].currentHp = Math.floor(game.player.team[0].hp * 0.5);
+  game.challengeGuardian = () => { game.challenged = true; };
+  game.autoPlayStep();
+  assert.equal(game.challenged, undefined);
+});
