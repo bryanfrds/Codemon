@@ -38,6 +38,12 @@ class CodemonGame {
     this.battle = null;
     this.currentView = 'exploration';
     this.currentArea = 0;
+    this.guardiansBeaten = [];   // areas whose guardian is beaten (opens the next)
+    // Lowest lead level at which autoplay will try each area's guardian again
+    // after losing to it. Without this it re-challenged straight after every
+    // blackout, at the same level, and could lose forever.
+    this.guardianRetryLevel = {};
+    this.justOpenedArea = false; // autoplay moves on only right after a guardian win
     this.playerPos = { x: 250, y: 200 };      // where the sprite is drawn
     this.playerTarget = { x: 250, y: 200 };   // where it's walking to
     this.facing = 1;                          // 1 = right, -1 = left
@@ -156,6 +162,7 @@ class CodemonGame {
     document.getElementById('cancelCatchBtn').addEventListener('click', () => this.closeCatchModal());
     document.getElementById('closeMoveModalBtn').addEventListener('click', () => this.closeMoveModal());
     document.getElementById('navShop').addEventListener('click', () => this.openShop());
+    document.getElementById('navGuardian').addEventListener('click', () => this.challengeGuardian());
     document.getElementById('closeShopBtn').addEventListener('click', () =>
       document.getElementById('shopModal').classList.add('hidden'));
 
@@ -166,6 +173,7 @@ class CodemonGame {
   }
 
   startGame() {
+    this.updateAreaButtons();   // a new game starts with only the first area open
     // A saved run picks up where it left off; only a new one gets the picker.
     if (this.loadGame()) {
       this.updateTeamUI();
@@ -255,7 +263,20 @@ class CodemonGame {
     }
   }
 
+  /** Lock icons on areas whose way in hasn't been opened yet. */
+  updateAreaButtons() {
+    document.querySelectorAll('.area-btn').forEach((btn, idx) => {
+      const open = isAreaOpen(this.guardiansBeaten, idx);
+      btn.classList.toggle('locked', !open);
+      btn.title = open ? '' : `Beat the ${AREAS[idx - 1].name} guardian to open`;
+    });
+  }
+
   changeArea(areaIdx) {
+    if (!isAreaOpen(this.guardiansBeaten, areaIdx)) {
+      this.setStatus(`Locked. Beat the guardian of ${AREAS[areaIdx - 1].name} first.`);
+      return;
+    }
     this.currentArea = areaIdx;
     const area = AREAS[areaIdx];
     document.getElementById('areaName').textContent = area.name;
@@ -320,14 +341,60 @@ class CodemonGame {
     const enemyLevel = Math.max(1, Math.round(
       (lead.level + jitter) * 0.95 * Math.sqrt(starterTotal / total(species))));
     const enemy = new Codemon(species, enemyLevel);
+    this.beginBattle(enemy, `Wild ${enemy.species.name} appeared!`);
+  }
 
+  /** Put the lead up against `enemy` and switch to the battle screen. */
+  beginBattle(enemy, message, guardian = false) {
     this.battle = new BattleState(this.player.getActiveCodemon(), enemy);
+    this.battle.guardian = guardian;
     // The shop is closed during fights; shut it if autoplay walked into one.
     document.getElementById('shopModal').classList.add('hidden');
     this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.switchView('battle');
     this.updateBattleUI();
-    this.setStatus(`Wild ${enemy.species.name} appeared!`);
+    this.setStatus(message);
+  }
+
+  /** The current area's guardian, ready to fight: its species, level and HP. */
+  makeGuardian(areaIdx) {
+    const ids = AREAS[areaIdx].possibleEncounters;
+    const species = guardianSpecies(ids[0], ids[ids.length - 1]);
+    const g = new Codemon(species, GUARDIAN_LEVELS[areaIdx]);
+    g.hp = g.currentHp = Math.round(g.hp * GUARDIAN_HP_BONUS);
+    return g;
+  }
+
+  /** Record the current area's guardian as beaten and pay out. Returns the area it opens. */
+  beatGuardian() {
+    if (!this.guardiansBeaten.includes(this.currentArea)) this.guardiansBeaten.push(this.currentArea);
+    this.player.addGold(GUARDIAN_GOLD);
+    this.battle.addLog(`Guardian beaten! +${GUARDIAN_GOLD} Gold.`);
+    this.updateAreaButtons();
+    this.justOpenedArea = this.currentArea + 1 < AREAS.length;
+    return this.currentArea + 1;
+  }
+
+  /** Fight this area's guardian; beating it opens the next area. */
+  challengeGuardian() {
+    if (this.battle) {
+      this.setStatus('Finish the current fight first.');
+      return;
+    }
+    if (!this.player.team.length) {
+      this.setStatus('Choose a starter first.');
+      return;
+    }
+    if (!this.player.team.some(c => c.currentHp > 0)) {
+      this.setStatus('Your team needs to rest before facing a guardian.');
+      return;
+    }
+    if (this.guardiansBeaten.includes(this.currentArea)) {
+      this.setStatus(`You've already beaten this area's guardian.`);
+      return;
+    }
+    const guardian = this.makeGuardian(this.currentArea);
+    this.beginBattle(guardian, `👑 The guardian ${guardian.species.name} (Lvl ${guardian.level}) blocks the way!`, true);
   }
 
   // Battle
@@ -336,7 +403,8 @@ class CodemonGame {
     const enemyCodemon = this.battle.enemyCodemon;
 
     document.getElementById('allyName').textContent = playerCodemon.species.name;
-    document.getElementById('enemyName').textContent = `Wild ${enemyCodemon.species.name}`;
+    document.getElementById('enemyName').textContent =
+      `${this.battle.guardian ? '👑 Guardian' : 'Wild'} ${enemyCodemon.species.name}`;
 
     this.updateHPBar('playerCodemon', playerCodemon);
     this.updateHPBar('enemyCodemon', enemyCodemon);
@@ -499,6 +567,10 @@ class CodemonGame {
 
   showCatchOptions() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
+    if (this.battle.guardian) {
+      this.setStatus("Guardians can't be caught. Beat it to open the next area.");
+      return;
+    }
     const info = document.getElementById('catchCreatureInfo');
     const enemy = this.battle.enemyCodemon;
     const probability = this.battle.calculateCatchProbability('pokeball');
@@ -520,6 +592,7 @@ class CodemonGame {
 
   confirmCatch() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
+    if (this.battle.guardian) return;   // see showCatchOptions
     const ballType = this.player.items.pokeball > 0 ? 'pokeball' : 'greatball';
     if (this.player.useItem(ballType)) {
       const success = this.battle.attemptCatch(ballType);
@@ -546,6 +619,10 @@ class CodemonGame {
 
   attemptFlee() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
+    if (this.battle.guardian) {
+      this.setStatus('There is no running from a guardian.');
+      return;
+    }
     const success = this.battle.flee();
     this.updateBattleUI();
 
@@ -588,9 +665,14 @@ class CodemonGame {
         this.battle.playerCodemon.gainExp(exp);
         this.player.addGold(50);
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
+        const opened = this.battle.guardian ? this.beatGuardian() : null;
         const evolved = this.evolveIfReady(this.battle.playerCodemon);
         this.updateBattleUI();
-        this.setStatus(evolved
+        const evolvedNote = evolved ? ` ${evolved.from.name} evolved into ${evolved.into.name}!` : '';
+        this.setStatus(opened !== null
+          ? (opened < AREAS.length ? `👑 Guardian beaten! ${AREAS[opened].name} is open.`
+                                   : '👑 The last guardian is beaten. Every area is yours!') + evolvedNote
+          : evolved
           ? `Won battle! ${evolved.from.name} evolved into ${evolved.into.name}!`
           : `Won battle! Gained ${exp} EXP.`);
         this.battle.resolved = true;
@@ -609,6 +691,10 @@ class CodemonGame {
           this.updateBattleUI();
         } else {
           this.setStatus('All CodeMons fainted!');
+          if (this.battle.guardian) {
+            // Try again only once the lead is 2 levels stronger than it was.
+            this.guardianRetryLevel[this.currentArea] = this.player.getActiveCodemon().level + 2;
+          }
           this.battle.resolved = true;
           const lost = this.battle;
           setTimeout(() => {
@@ -640,6 +726,7 @@ class CodemonGame {
       items: this.player.items,
       pokedex: [...this.player.pokedex],
       area: this.currentArea,
+      guardiansBeaten: this.guardiansBeaten,
       team: this.player.team.map(c => ({
         species: c.species.id, level: c.level, exp: c.exp,
         expToLevel: c.expToLevel, hp: c.currentHp,
@@ -704,9 +791,18 @@ class CodemonGame {
       this.player.pokedex = new Set(
         [...dex, ...team.map(c => c.species.id)].filter(id => speciesById(id)));
 
-      if (Number.isInteger(data.area) && data.area >= 0 && data.area < AREAS.length) {
-        this.changeArea(data.area);
+      // Guardians beaten: area numbers only, each once. A save from before
+      // guardians existed counts every area below its own as beaten, so nobody
+      // is locked out of somewhere they already were.
+      const area = Number.isInteger(data.area) && data.area >= 0 && data.area < AREAS.length ? data.area : 0;
+      if (Array.isArray(data.guardiansBeaten)) {
+        this.guardiansBeaten = [...new Set(data.guardiansBeaten
+          .filter(a => Number.isInteger(a) && a >= 0 && a < AREAS.length))];
+      } else {
+        this.guardiansBeaten = Array.from({ length: area }, (_, i) => i);
       }
+      this.updateAreaButtons();
+      this.changeArea(isAreaOpen(this.guardiansBeaten, area) ? area : 0);
       return true;
     } catch (e) {
       return false;
@@ -885,7 +981,7 @@ class CodemonGame {
       // Worth a ball when it's weakened and the team has room.
       const enemy = this.battle.enemyCodemon;
       const weak = enemy.currentHp / enemy.hp < 0.4;
-      if (weak && this.player.items.pokeball > 0 && this.player.team.length < 6
+      if (weak && !this.battle.guardian && this.player.items.pokeball > 0 && this.player.team.length < 6
           && Math.random() < 0.5) {
         this.confirmCatch();
         return;
@@ -930,6 +1026,26 @@ class CodemonGame {
       this.updateTeamUI();
       return;
     }
+    // Guardians: take this area's on once the lead has reached its level and has
+    // most of its HP (only the lead: fainted backups only heal on a blackout, so
+    // waiting for the whole team could wait forever). After a win, move on.
+    const area = this.currentArea;
+    if (this.justOpenedArea) {
+      // Only straight after a win: a player who walks back to an earlier area
+      // and turns autoplay on stays there.
+      this.justOpenedArea = false;
+      this.changeArea(area + 1);
+      return;
+    }
+    if (!this.guardiansBeaten.includes(area)) {
+      const lead = this.player.getActiveCodemon();
+      const ready = Math.max(GUARDIAN_LEVELS[area], this.guardianRetryLevel[area] || 0);
+      if (lead.level >= ready && lead.currentHp >= lead.hp * 0.7) {
+        this.challengeGuardian();
+        return;
+      }
+    }
+
     // Restock between fights, one item per step (see nextRestock).
     const restock = nextRestock(this.player);
     if (restock && this.player.buy(restock)) {

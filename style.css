@@ -754,3 +754,7 @@ body {
 .shop-owned { font-size: 11px; color: #94a3b8; }
 .shop-buy { padding: 6px 10px; font-size: 11px; }
 .shop-buy:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* An area you can't enter yet: dimmed, with a lock after its name. */
+.area-btn.locked { opacity: 0.45; cursor: not-allowed; }
+.area-btn.locked::after { content: ' 🔒'; }

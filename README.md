@@ -28,6 +28,7 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 - **Animated battles** — attacks lunge, hits flash and shake with sparks in the move's type colour, damage numbers float up, and HP bars drop when the hit lands.
 - **Catching** with Pokéballs and Great Balls; weaken a CodeMon first for better odds.
 - **Items** — potions to heal mid-fight.
+- **Area guardians**: each area has a guardian, its strongest CodeMon at a fixed level (12, 22, 32, 42) with extra HP. Beat it with the 👑 Guardian button to open the next area and win 200 gold. Guardians can't be caught or run from, and locked areas show a 🔒. On autoplay, it challenges the guardian once the lead reaches its level and moves on to the new area after a win. After a loss it waits until the lead is two levels stronger before trying again.
 - **Evolution** — win a fight at level 16 and your CodeMon evolves into a stronger one of the same type, then again at 32. It flashes white as it changes, and evolved CodeMon keep a soft glow in their type's colour, brighter at the final stage.
 - **Shop** — spend the gold you win on Pokéballs (40), Great Balls (100) and Potions (25). It's closed during fights. Autoplay restocks on its own when it runs low.
 - **Autoplay** — explores, fights, heals and catches on its own.
@@ -68,7 +69,7 @@ Progress saves automatically in your browser, after each battle, when you change
 1. Choose a starter.
 2. Walk around with the arrow buttons, or press **ENCOUNTER** to find a wild CodeMon.
 3. In battle: **MOVE** to attack, **ITEM** for a potion, **CATCH** to throw a ball, **SWITCH** to swap team members, **RUN** to flee.
-4. Change area from the **AREAS** panel to meet different CodeMon.
+4. Beat an area's **👑 Guardian** to open the next one, then change area from the **AREAS** panel to meet different CodeMon.
 5. Spend gold in the **SHOP** between fights.
 6. Or press **🤖 AUTOPLAY** and let it play.
 
