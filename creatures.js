@@ -14092,6 +14092,25 @@ function evolutionFor(species, level) {
   return evo && level >= evo.level ? evo.into : null;
 }
 
+// Area guardians. Each area has one: beat it to open the next area. The
+// guardian is the strongest final-stage CodeMon among that area's wild ones, at
+// a fixed level, and it's tougher than a wild CodeMon of the same level.
+const GUARDIAN_LEVELS = [12, 22, 32, 42];
+const GUARDIAN_HP_BONUS = 1.5;     // times a wild CodeMon's HP at that level
+const GUARDIAN_GOLD = 200;
+
+/** The guardian's species for an area whose wild CodeMon are ids lo..hi. */
+function guardianSpecies(lo, hi) {
+  return CODEMON_SPECIES
+    .filter(sp => sp.id >= lo && sp.id <= hi && EVOLUTION_STAGE.get(sp.id) === 2)
+    .reduce((best, sp) => (!best || baseTotal(sp) > baseTotal(best) ? sp : best), null);
+}
+
+/** Area 0 is always open; any other needs the previous area's guardian beaten. */
+function isAreaOpen(beaten, areaIdx) {
+  return areaIdx === 0 || beaten.includes(areaIdx - 1);
+}
+
 class Codemon {
   constructor(species, level = 1) {
     this.species = species;
@@ -14294,4 +14313,6 @@ window.SHOP_PRICES = SHOP_PRICES;
 window.nextRestock = nextRestock;
 window.evolutionFor = evolutionFor;
 window.evolveFully = evolveFully;
+window.guardianSpecies = guardianSpecies;
+window.isAreaOpen = isAreaOpen;
 window.EVOLUTION_STAGE = EVOLUTION_STAGE;
