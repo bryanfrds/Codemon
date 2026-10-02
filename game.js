@@ -359,6 +359,15 @@ class CodemonGame {
     return g;
   }
 
+  /** Record the current area's guardian as beaten and pay out. Returns the area it opens. */
+  beatGuardian() {
+    if (!this.guardiansBeaten.includes(this.currentArea)) this.guardiansBeaten.push(this.currentArea);
+    this.player.addGold(GUARDIAN_GOLD);
+    this.battle.addLog(`Guardian beaten! +${GUARDIAN_GOLD} Gold.`);
+    this.updateAreaButtons();
+    return this.currentArea + 1;
+  }
+
   /** Fight this area's guardian; beating it opens the next area. */
   challengeGuardian() {
     if (this.battle) {
@@ -645,9 +654,13 @@ class CodemonGame {
         this.battle.playerCodemon.gainExp(exp);
         this.player.addGold(50);
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
+        const opened = this.battle.guardian ? this.beatGuardian() : null;
         const evolved = this.evolveIfReady(this.battle.playerCodemon);
         this.updateBattleUI();
-        this.setStatus(evolved
+        this.setStatus(opened !== null
+          ? (opened < AREAS.length ? `👑 Guardian beaten! ${AREAS[opened].name} is open.`
+                                   : '👑 The last guardian is beaten. Every area is yours!')
+          : evolved
           ? `Won battle! ${evolved.from.name} evolved into ${evolved.into.name}!`
           : `Won battle! Gained ${exp} EXP.`);
         this.battle.resolved = true;
