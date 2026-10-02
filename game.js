@@ -335,14 +335,46 @@ class CodemonGame {
     const enemyLevel = Math.max(1, Math.round(
       (lead.level + jitter) * 0.95 * Math.sqrt(starterTotal / total(species))));
     const enemy = new Codemon(species, enemyLevel);
+    this.beginBattle(enemy, `Wild ${enemy.species.name} appeared!`);
+  }
 
+  /** Put the lead up against `enemy` and switch to the battle screen. */
+  beginBattle(enemy, message, guardian = false) {
     this.battle = new BattleState(this.player.getActiveCodemon(), enemy);
+    this.battle.guardian = guardian;
     // The shop is closed during fights; shut it if autoplay walked into one.
     document.getElementById('shopModal').classList.add('hidden');
     this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.switchView('battle');
     this.updateBattleUI();
-    this.setStatus(`Wild ${enemy.species.name} appeared!`);
+    this.setStatus(message);
+  }
+
+  /** The current area's guardian, ready to fight: its species, level and HP. */
+  makeGuardian(areaIdx) {
+    const ids = AREAS[areaIdx].possibleEncounters;
+    const species = guardianSpecies(ids[0], ids[ids.length - 1]);
+    const g = new Codemon(species, GUARDIAN_LEVELS[areaIdx]);
+    g.hp = g.currentHp = Math.round(g.hp * GUARDIAN_HP_BONUS);
+    return g;
+  }
+
+  /** Fight this area's guardian; beating it opens the next area. */
+  challengeGuardian() {
+    if (this.battle) {
+      this.setStatus('Finish the current fight first.');
+      return;
+    }
+    if (!this.player.team.some(c => c.currentHp > 0)) {
+      this.setStatus('Your team needs to rest before facing a guardian.');
+      return;
+    }
+    if (this.guardiansBeaten.includes(this.currentArea)) {
+      this.setStatus(`You've already beaten this area's guardian.`);
+      return;
+    }
+    const guardian = this.makeGuardian(this.currentArea);
+    this.beginBattle(guardian, `👑 The guardian ${guardian.species.name} (Lvl ${guardian.level}) blocks the way!`, true);
   }
 
   // Battle
@@ -351,7 +383,8 @@ class CodemonGame {
     const enemyCodemon = this.battle.enemyCodemon;
 
     document.getElementById('allyName').textContent = playerCodemon.species.name;
-    document.getElementById('enemyName').textContent = `Wild ${enemyCodemon.species.name}`;
+    document.getElementById('enemyName').textContent =
+      `${this.battle.guardian ? '👑 Guardian' : 'Wild'} ${enemyCodemon.species.name}`;
 
     this.updateHPBar('playerCodemon', playerCodemon);
     this.updateHPBar('enemyCodemon', enemyCodemon);
@@ -514,6 +547,10 @@ class CodemonGame {
 
   showCatchOptions() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
+    if (this.battle.guardian) {
+      this.setStatus("Guardians can't be caught. Beat it to open the next area.");
+      return;
+    }
     const info = document.getElementById('catchCreatureInfo');
     const enemy = this.battle.enemyCodemon;
     const probability = this.battle.calculateCatchProbability('pokeball');
@@ -535,6 +572,7 @@ class CodemonGame {
 
   confirmCatch() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
+    if (this.battle.guardian) return;   // see showCatchOptions
     const ballType = this.player.items.pokeball > 0 ? 'pokeball' : 'greatball';
     if (this.player.useItem(ballType)) {
       const success = this.battle.attemptCatch(ballType);
@@ -561,6 +599,10 @@ class CodemonGame {
 
   attemptFlee() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
+    if (this.battle.guardian) {
+      this.setStatus('There is no running from a guardian.');
+      return;
+    }
     const success = this.battle.flee();
     this.updateBattleUI();
 
@@ -910,7 +952,7 @@ class CodemonGame {
       // Worth a ball when it's weakened and the team has room.
       const enemy = this.battle.enemyCodemon;
       const weak = enemy.currentHp / enemy.hp < 0.4;
-      if (weak && this.player.items.pokeball > 0 && this.player.team.length < 6
+      if (weak && !this.battle.guardian && this.player.items.pokeball > 0 && this.player.team.length < 6
           && Math.random() < 0.5) {
         this.confirmCatch();
         return;
