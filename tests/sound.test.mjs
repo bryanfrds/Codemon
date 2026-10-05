@@ -104,3 +104,12 @@ test('a win that levels the lead up plays the level-up chime', () => {
   game.checkBattleStatus();
   assert.ok(heard.includes('levelUp'));
 });
+
+test('the first click or key press wakes the audio up', () => {
+  let resumed = 0;
+  const audio = { ...fakeAudio(), state: 'suspended', resume() { resumed++; } };
+  const sound = new CodemonSound(memoryStorage(), () => audio);
+  sound.unlock();
+  assert.equal(sound.ctx, audio);
+  assert.equal(resumed, 1);
+});
