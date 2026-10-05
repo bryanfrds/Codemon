@@ -58,15 +58,23 @@ class CodemonSound {
     if (this.ctx && this.ctx.state === 'suspended' && this.ctx.resume) this.ctx.resume();
   }
 
-  /** Play a named sound. Returns false (silently) if muted, unknown, or no audio. */
-  play(name) {
+  /**
+   * Play a named sound, `delay` seconds from now. Returns false (silently) if
+   * muted, unknown, no audio, or the audio is still paused.
+   */
+  play(name, delay = 0) {
     const notes = SOUNDS[name];
     if (this.muted || !notes) return false;
     if (!this.ctx) this.ctx = this.makeContext();
     const ctx = this.ctx;
     if (!ctx) return false;
-    if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
-    const now = ctx.currentTime;
+    // While paused, the audio clock stands still, so anything scheduled now
+    // would all go off at once when it wakes. Ask it to wake and skip this one.
+    if (ctx.state !== 'running') {
+      if (ctx.resume) ctx.resume();
+      return false;
+    }
+    const now = ctx.currentTime + Math.max(0, delay);
     for (const n of notes) {
       const start = now + (n.at || 0), end = start + n.d;
       const osc = ctx.createOscillator();
@@ -93,6 +101,12 @@ const SOUND = new CodemonSound(
     return AC ? new AC() : null;
   });
 
-for (const type of ['pointerdown', 'keydown']) {
-  window.addEventListener(type, () => SOUND.unlock(), { once: true });
+// Keep trying on each input until the audio is actually running: some key
+// presses (Escape, modifier keys) don't count as a real interaction.
+function unlockOnInput() {
+  SOUND.unlock();
+  if (SOUND.ctx && SOUND.ctx.state === 'running') {
+    for (const type of ['pointerdown', 'keydown']) window.removeEventListener(type, unlockOnInput);
+  }
 }
+for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, unlockOnInput);
