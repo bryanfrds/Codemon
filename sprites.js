@@ -37,9 +37,10 @@ class CodemonSprites {
   }
 
   /** Markup for the places that build HTML strings (team list, Pokedex, catch). */
-  imgFor(species, size = 48) {
+  imgFor(species, size = 48, shiny = false) {
+    const filter = shiny ? ` filter: ${SHINY_FILTER};` : '';
     return `<img src="${this.fileFor(species)}" width="${size}" height="${size}" ` +
-           `alt="" style="image-rendering: pixelated; display: block;">`;
+           `alt="" style="image-rendering: pixelated; display: block;${filter}">`;
   }
 
   /** Draw centred on (cx, cy) at `size` px, preserving the square aspect. */
