@@ -157,7 +157,7 @@ class BattleState {
     const success = Math.random() * 100 < probability;
 
     if (success) {
-      this.log.push(`Caught ${this.enemyCodemon.species.name}!`);
+      this.log.push(`Caught ${this.enemyCodemon.shiny ? 'a shiny ' : ''}${this.enemyCodemon.species.name}!`);
       this.battleOver = true;
       this.winner = 'caught';
     } else {

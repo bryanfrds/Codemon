@@ -32,6 +32,12 @@ const SAVE_VERSION = 1;          // bump if the saved shape changes
 
 const EVOLVE_MS = 1800;   // length of the evolution animation
 
+/** Two canvas filters as one; either may be empty or 'none'. */
+function withFilter(a, b) {
+  const parts = [a, b].filter(f => f && f !== 'none');
+  return parts.length ? parts.join(' ') : 'none';
+}
+
 class CodemonGame {
   constructor() {
     this.player = new Player();
@@ -343,7 +349,9 @@ class CodemonGame {
     const enemyLevel = Math.max(1, Math.round(
       (lead.level + jitter) * 0.95 * Math.sqrt(starterTotal / total(species))));
     const enemy = new Codemon(species, enemyLevel);
-    this.beginBattle(enemy, `Wild ${enemy.species.name} appeared!`);
+    enemy.shiny = rollShiny(Math.random());
+    this.beginBattle(enemy, enemy.shiny ? `✨ A shiny wild ${enemy.species.name} appeared!`
+                                        : `Wild ${enemy.species.name} appeared!`);
   }
 
   /** Put the lead up against `enemy` and switch to the battle screen. */
@@ -404,9 +412,9 @@ class CodemonGame {
     const playerCodemon = this.battle.playerCodemon;
     const enemyCodemon = this.battle.enemyCodemon;
 
-    document.getElementById('allyName').textContent = playerCodemon.species.name;
+    document.getElementById('allyName').textContent = `${playerCodemon.shiny ? '✨ ' : ''}${playerCodemon.species.name}`;
     document.getElementById('enemyName').textContent =
-      `${this.battle.guardian ? '👑 Guardian' : 'Wild'} ${enemyCodemon.species.name}`;
+      `${this.battle.guardian ? '👑 Guardian' : enemyCodemon.shiny ? '✨ Shiny wild' : 'Wild'} ${enemyCodemon.species.name}`;
 
     this.updateHPBar('playerCodemon', playerCodemon);
     this.updateHPBar('enemyCodemon', enemyCodemon);
@@ -579,7 +587,7 @@ class CodemonGame {
 
     info.innerHTML = `
       <div class="catch-creature-info">
-        <div class="catch-icon">${SPRITES.imgFor(enemy.species, 56)}</div>
+        <div class="catch-icon">${SPRITES.imgFor(enemy.species, 56, enemy.shiny)}</div>
         <div class="catch-stats">
           <div class="catch-stat"><strong class="catch-stat-value">${enemy.species.name}</strong></div>
           <div class="catch-stat">Level: <strong class="catch-stat-value">${enemy.level}</strong></div>
@@ -602,6 +610,7 @@ class CodemonGame {
 
       if (success) {
         const newCodemon = new Codemon(this.battle.enemyCodemon.species, this.battle.enemyCodemon.level);
+        newCodemon.shiny = this.battle.enemyCodemon.shiny;
         this.player.addCodemon(newCodemon);
         this.player.addGold(30);
         this.closeCatchModal();
@@ -731,7 +740,7 @@ class CodemonGame {
       guardiansBeaten: this.guardiansBeaten,
       team: this.player.team.map(c => ({
         species: c.species.id, level: c.level, exp: c.exp,
-        expToLevel: c.expToLevel, hp: c.currentHp,
+        expToLevel: c.expToLevel, hp: c.currentHp, shiny: c.shiny,
       })),
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) { /* storage blocked */ }
@@ -762,6 +771,7 @@ class CodemonGame {
         if (Number.isInteger(t.expToLevel) && t.expToLevel >= c.expToLevel) c.expToLevel = t.expToLevel;
         if (Number.isFinite(t.exp) && t.exp >= 0) c.exp = Math.min(Math.floor(t.exp), c.expToLevel - 1);
         c.currentHp = Number.isFinite(t.hp) ? Math.max(0, Math.min(c.hp, Math.round(t.hp))) : c.hp;
+        c.shiny = t.shiny === true;
         return c;
       }).filter(Boolean);
       if (!team.length) return false;           // e.g. every species was removed
@@ -849,9 +859,9 @@ class CodemonGame {
       const slot = document.createElement('div');
       slot.className = `team-slot ${idx === 0 ? 'active' : ''}`;
       slot.innerHTML = `
-        <div class="creature-avatar">${SPRITES.imgFor(codemon.species, 32)}</div>
+        <div class="creature-avatar">${SPRITES.imgFor(codemon.species, 32, codemon.shiny)}</div>
         <div class="creature-info">
-          <div class="creature-name">${codemon.species.name}</div>
+          <div class="creature-name">${codemon.shiny ? '✨ ' : ''}${codemon.species.name}</div>
           <div class="creature-level">Lvl ${codemon.level} | HP: ${codemon.currentHp}/${codemon.hp}</div>
         </div>
       `;
@@ -1174,6 +1184,23 @@ class CodemonGame {
              flow: '#38bdf8' }[type] || '#f1f5f9';
   }
 
+  /** Little four-point stars that twinkle around a shiny CodeMon. */
+  drawSparkles(ctx, x, y, size, now) {
+    ctx.save();
+    ctx.fillStyle = '#fff7c2';
+    for (let i = 0; i < 4; i++) {
+      const phase = (now / 900 + i / 4) % 1;          // each star has its turn
+      const a = i * 1.7 + 0.6;
+      const px = x + Math.cos(a) * size * 0.42, py = y + Math.sin(a) * size * 0.38;
+      const r = Math.sin(phase * Math.PI) * size * 0.05;
+      if (r < 0.5) continue;
+      ctx.globalAlpha = Math.sin(phase * Math.PI);
+      ctx.fillRect(px - r, py - r / 4, r * 2, r / 2);
+      ctx.fillRect(px - r / 4, py - r, r / 2, r * 2);
+    }
+    ctx.restore();
+  }
+
   /** A soft round glow behind a creature; `strength` is its peak opacity. */
   drawAura(ctx, x, y, size, color, strength) {
     if (strength <= 0) return;
@@ -1381,10 +1408,12 @@ class CodemonGame {
     const foe = this.battle.enemyCodemon.species;
     this.drawAura(ctx, ex + fx.enemy.dx, ey + fx.enemy.dy, enemySize,
                   this.typeColorOf(foe.type), this.evolvedGlow(foe, now));
-    ctx.filter = fx.enemy.filter;
+    const foeShiny = this.battle.enemyCodemon.shiny;
+    ctx.filter = withFilter(fx.enemy.filter, foeShiny ? SHINY_FILTER : '');
     SPRITES.draw(ctx, this.battle.enemyCodemon.species,
                  ex + fx.enemy.dx, ey + fx.enemy.dy, enemySize);
     ctx.filter = 'none';
+    if (foeShiny) this.drawSparkles(ctx, ex + fx.enemy.dx, ey + fx.enemy.dy, enemySize, now);
 
     platform(ax, ay + allySize * 0.38, allySize * 0.40);
     let mine = this.battle.playerCodemon.species;
@@ -1406,9 +1435,11 @@ class CodemonGame {
     }
     this.drawAura(ctx, ax + fx.player.dx, ay + fx.player.dy, allySize,
                   this.typeColorOf(mine.type), this.evolvedGlow(mine, now));
-    ctx.filter = filter;
+    const mineShiny = this.battle.playerCodemon.shiny;
+    ctx.filter = withFilter(filter, mineShiny ? SHINY_FILTER : '');
     SPRITES.draw(ctx, mine, ax + fx.player.dx, ay + fx.player.dy, allySize);
     ctx.filter = 'none';
+    if (mineShiny) this.drawSparkles(ctx, ax + fx.player.dx, ay + fx.player.dy, allySize, now);
 
     this.drawFxOverlay(ctx, now);
   }
