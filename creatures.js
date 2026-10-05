@@ -14092,6 +14092,16 @@ function evolutionFor(species, level) {
   return evo && level >= evo.level ? evo.into : null;
 }
 
+// Shiny CodeMon: a rare wild one in different colours, with a sparkle. It's
+// only a look - same stats - but it stays shiny when caught and when it evolves.
+const SHINY_CHANCE = 1 / 64;
+const SHINY_FILTER = 'hue-rotate(150deg) saturate(1.5) brightness(1.1)';
+
+/** Whether a new wild CodeMon is shiny, from a random number in [0, 1). */
+function rollShiny(random) {
+  return random < SHINY_CHANCE;
+}
+
 // Area guardians. Each area has one: beat it to open the next area. The
 // guardian is the most evolved, strongest CodeMon among that area's wild ones,
 // at a fixed level, and it's tougher than a wild CodeMon of the same level.
@@ -14322,5 +14332,7 @@ window.nextRestock = nextRestock;
 window.evolutionFor = evolutionFor;
 window.evolveFully = evolveFully;
 window.guardianSpecies = guardianSpecies;
+window.rollShiny = rollShiny;
+window.SHINY_FILTER = SHINY_FILTER;
 window.isAreaOpen = isAreaOpen;
 window.EVOLUTION_STAGE = EVOLUTION_STAGE;
