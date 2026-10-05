@@ -29,6 +29,7 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 - **Catching** with Pokéballs and Great Balls; weaken a CodeMon first for better odds.
 - **Items** — potions to heal mid-fight.
 - **Area guardians**: each area has a guardian, its strongest CodeMon at a fixed level (12, 20, 28, 36) with extra HP. Beat it with the 👑 Guardian button to open the next area and win 200 gold. Guardians can't be caught or run from, and locked areas show a 🔒. On autoplay, it challenges the guardian once the lead reaches its level and moves on to the new area after a win. After a loss it waits until the lead is two levels stronger before trying again.
+- **Shiny CodeMon**: about 1 wild CodeMon in 64 is shiny, in different colours with a sparkle. They're just for show, with the same stats. A shiny stays shiny when you catch it and when it evolves, and it's marked ✨ in your team.
 - **Evolution** — win a fight at level 16 and your CodeMon evolves into a stronger one of the same type, then again at 32. It flashes white as it changes, and evolved CodeMon keep a soft glow in their type's colour, brighter at the final stage.
 - **Shop** — spend the gold you win on Pokéballs (40), Great Balls (100) and Potions (25). It's closed during fights. Autoplay restocks on its own when it runs low.
 - **Autoplay** — explores, fights, heals and catches on its own.
