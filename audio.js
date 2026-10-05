@@ -82,8 +82,3 @@ const SOUND = new CodemonSound(
     const AC = window.AudioContext || window.webkitAudioContext;
     return AC ? new AC() : null;
   });
-
-/** Play a sound if the sound player is loaded (it isn't in the Node tests). */
-function sfx(name) {
-  if (typeof SOUND !== 'undefined') SOUND.play(name);
-}
