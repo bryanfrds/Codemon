@@ -14138,6 +14138,7 @@ class Codemon {
     this.hp = this.getMaxHp();
     this.currentHp = this.hp;
     this.moves = [...species.moves];
+    this.shiny = false;           // see rollShiny; kept through catching and evolving
     this.stats = {
       atk: this.getAtk(),
       def: this.getDef(),
