@@ -48,6 +48,16 @@ class CodemonSound {
     return this.muted;
   }
 
+  /**
+   * Create and wake the audio context. Browsers keep it paused until the player
+   * clicks or presses something, so this runs on the first such input; sounds
+   * triggered by autoplay before then would otherwise stay silent.
+   */
+  unlock() {
+    if (!this.ctx) this.ctx = this.makeContext();
+    if (this.ctx && this.ctx.state === 'suspended' && this.ctx.resume) this.ctx.resume();
+  }
+
   /** Play a named sound. Returns false (silently) if muted, unknown, or no audio. */
   play(name) {
     const notes = SOUNDS[name];
@@ -82,3 +92,7 @@ const SOUND = new CodemonSound(
     const AC = window.AudioContext || window.webkitAudioContext;
     return AC ? new AC() : null;
   });
+
+for (const type of ['pointerdown', 'keydown']) {
+  window.addEventListener(type, () => SOUND.unlock(), { once: true });
+}
