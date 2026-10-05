@@ -9,11 +9,13 @@ import vm from 'node:vm';
 /** A stand-in AudioContext that records every tone it's asked to play. */
 function fakeAudio() {
   const tones = [];
-  const param = () => ({ setValueAtTime() {}, exponentialRampToValueAtTime() {} });
+  const ramps = [];                              // every ramp target, which must stay above 0
+  const param = () => ({ setValueAtTime() {}, exponentialRampToValueAtTime(v) { ramps.push(v); } });
   return {
-    tones, currentTime: 10, state: 'running', destination: {},
+    tones, ramps, currentTime: 10, state: 'running', destination: {},
     createOscillator() {
       const o = { frequency: param(), connect() {}, start(t) { o.at = t; }, stop(t) { o.end = t; tones.push(o); } };
+      o.connect = () => {};
       return o;
     },
     createGain() { return { gain: param(), connect() {} }; },
@@ -21,12 +23,16 @@ function fakeAudio() {
 }
 const memoryStorage = () => ({ store: {}, getItem(k) { return this.store[k] ?? null; }, setItem(k, v) { this.store[k] = String(v); } });
 
-const ctx = { window: { addEventListener() {}, localStorage: memoryStorage() }, setTimeout: () => 0 };
+const listeners = {};
+const ctx = { window: { localStorage: memoryStorage(),
+                        addEventListener(t, fn) { (listeners[t] ||= new Set()).add(fn); },
+                        removeEventListener(t, fn) { listeners[t]?.delete(fn); } },
+              setTimeout: () => 0 };
 vm.createContext(ctx);
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 vm.runInContext(src('audio.js') + '\n' + src('creatures.js') + '\n' + src('battle.js') + '\n' + src('game.js') +
-  '\nObject.assign(this, { SOUNDS, CodemonSound, SOUND, CODEMON_SPECIES, Codemon, Player, BattleState, CodemonGame });', ctx);
-const { SOUNDS, CodemonSound, CODEMON_SPECIES, Codemon, Player, BattleState, CodemonGame } = ctx;
+  '\nObject.assign(this, { SOUNDS, CodemonSound, SOUND, CODEMON_SPECIES, Codemon, Player, BattleState, CodemonGame, hitSound });', ctx);
+const { SOUNDS, CodemonSound, CODEMON_SPECIES, Codemon, Player, BattleState, CodemonGame, hitSound } = ctx;
 
 test('every sound is a list of sensible notes', () => {
   for (const [name, notes] of Object.entries(SOUNDS)) {
@@ -74,21 +80,23 @@ test('blocked storage does not stop the sounds', () => {
 /** The game with sound requests recorded instead of played. */
 function gameHearing() {
   const heard = [];
-  ctx.SOUND.play = (name) => { heard.push(name); return true; };
+  const delays = {};
+  ctx.SOUND.play = (name, delay = 0) => { heard.push(name); delays[name] = delay; return true; };
   const game = Object.create(CodemonGame.prototype);
   game.player = new Player();
   game.player.team.push(new Codemon(CODEMON_SPECIES[0], 10));
   game.battle = new BattleState(game.player.team[0], new Codemon(CODEMON_SPECIES[5], 10));
   for (const m of ['updateBattleUI', 'setStatus', 'updateTeamUI', 'updateStats', 'closeCatchModal', 'endBattle'])
     game[m] = () => {};
-  return { game, heard };
+  return { game, heard, delays };
 }
 
 test('a catch throws, then chimes or fails', () => {
-  const { game, heard } = gameHearing();
+  const { game, heard, delays } = gameHearing();
   game.battle.calculateCatchProbability = () => 100;
   game.confirmCatch();
   assert.deepEqual([...heard], ['throw', 'caught']);
+  assert.ok(delays.caught >= 0.15, 'the result waits for the throw to finish');
   const miss = gameHearing();
   miss.game.battle.calculateCatchProbability = () => 0;
   miss.game.confirmCatch();
@@ -102,6 +110,9 @@ test('a win that levels the lead up plays the level-up chime', () => {
   game.battle.playerWon = true;
   game.battle.playerCodemon.exp = game.battle.playerCodemon.expToLevel - 1;
   game.checkBattleStatus();
+  assert.ok(!heard.includes('levelUp'), 'not before the knockout has shown');
+  game.fxBusy = () => false;
+  game.flushQueuedSound();
   assert.ok(heard.includes('levelUp'));
 });
 
@@ -112,4 +123,70 @@ test('the first click or key press wakes the audio up', () => {
   sound.unlock();
   assert.equal(sound.ctx, audio);
   assert.equal(resumed, 1);
+});
+
+test('notes fade towards a tiny volume, never 0, and start after any delay', () => {
+  const audio = fakeAudio();
+  const sound = new CodemonSound(memoryStorage(), () => audio);
+  for (const name of Object.keys(SOUNDS)) sound.play(name);
+  assert.ok(audio.ramps.length > 0 && audio.ramps.every(v => v > 0));
+  const later = fakeAudio();
+  new CodemonSound(memoryStorage(), () => later).play('hit', 0.5);
+  assert.equal(later.tones[0].at, 10.5);
+  assert.ok(later.tones[0].end > later.tones[0].at);
+});
+
+test('while the audio is paused, sounds are skipped rather than piled up', () => {
+  let resumed = 0;
+  const audio = { ...fakeAudio(), state: 'suspended', resume() { resumed++; } };
+  const sound = new CodemonSound(memoryStorage(), () => audio);
+  assert.equal(sound.play('hit'), false);
+  assert.equal(audio.tones.length, 0);
+  assert.equal(resumed, 1);
+});
+
+test('inputs keep trying to wake the audio until it is running, then stop listening', () => {
+  const states = ['suspended', 'running'];
+  const audio = { ...fakeAudio(), resume() {} };
+  Object.defineProperty(audio, 'state', { get: () => states[0] });
+  ctx.SOUND.ctx = audio;
+  const [handler] = listeners.keydown;
+  handler();                                     // e.g. Escape: still paused
+  assert.equal(listeners.keydown.size, 1);
+  states.shift();                                // a real click wakes it
+  handler();
+  assert.equal(listeners.keydown.size, 0);
+  assert.equal(listeners.pointerdown.size, 0);
+});
+
+test('a landed move sounds like how well it matched up', () => {
+  assert.equal(hitSound({ kind: 'hit', effectiveness: 1.5 }), 'super');
+  assert.equal(hitSound({ kind: 'hit', effectiveness: 0.67 }), 'weak');
+  assert.equal(hitSound({ kind: 'hit', effectiveness: 1 }), 'hit');
+  assert.equal(hitSound({ kind: 'miss' }), 'miss');
+});
+
+test("a guardian win plays the fanfare, not the level-up chime", () => {
+  const { game, heard } = gameHearing();
+  Object.assign(game, { currentArea: 0, guardiansBeaten: [], guardianRetryLevel: {},
+                        evolveIfReady: () => null, updateAreaButtons: () => {}, fxBusy: () => false });
+  game.battle.guardian = true;
+  game.battle.battleOver = true;
+  game.battle.playerWon = true;
+  game.battle.playerCodemon.exp = game.battle.playerCodemon.expToLevel - 1;   // it levels up too
+  game.checkBattleStatus();
+  game.flushQueuedSound();
+  assert.deepEqual([...heard], ['guardian']);
+});
+
+test('the evolution sound plays once, however many frames it takes', () => {
+  const { game, heard } = gameHearing();
+  game.fx = { active: null, particles: [], texts: [], rings: [], evolution: { t0: null } };
+  let busy = true;
+  game.fxBusy = () => busy;
+  game.startEvolutionIfReady(1);                 // the last hit is still playing
+  assert.equal(heard.length, 0);
+  busy = false;
+  for (let f = 2; f < 10; f++) game.startEvolutionIfReady(f);
+  assert.deepEqual([...heard], ['evolve']);
 });
