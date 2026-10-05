@@ -1215,15 +1215,15 @@ class CodemonGame {
              flow: '#38bdf8' }[type] || '#f1f5f9';
   }
 
-  /** A sound to play once the current animations finish, so it isn't early. */
   /** Hold a sound until the battle animation finishes. A later one replaces it. */
   queueSound(name) {
     if (!this.fx) this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.fx.queuedSound = name;
   }
 
+  /** Waits for an evolution too, so the chime or fanfare follows its sweep. */
   flushQueuedSound() {
-    if (this.fx.queuedSound && !this.fxBusy()) {
+    if (this.fx.queuedSound && !this.fxBusy() && !this.fx.evolution) {
       playSound(this.fx.queuedSound);
       this.fx.queuedSound = null;
     }

@@ -190,3 +190,16 @@ test('the evolution sound plays once, however many frames it takes', () => {
   for (let f = 2; f < 10; f++) game.startEvolutionIfReady(f);
   assert.deepEqual([...heard], ['evolve']);
 });
+
+test('a win sound waits for an evolution to finish instead of playing over it', () => {
+  const { game, heard } = gameHearing();
+  game.fxBusy = () => false;
+  game.queueSound('levelUp');
+  game.fx.evolution = { t0: null };
+  game.startEvolutionIfReady(1);
+  game.flushQueuedSound();
+  assert.deepEqual([...heard], ['evolve']);
+  game.fx.evolution = null;                      // the sweep has finished
+  game.flushQueuedSound();
+  assert.deepEqual([...heard], ['evolve', 'levelUp']);
+});
