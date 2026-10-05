@@ -82,3 +82,29 @@ test('shinies stay shiny through a save and load, and only true counts', () => {
   assert.ok(again.loadGame());
   assert.deepEqual([...again.player.team.map(c => c.shiny)], [true, false, false]);
 });
+
+test('wild encounters roll for shiny, and say so', () => {
+  const encounter = (roll) => {
+    const game = Object.create(CodemonGame.prototype);
+    game.player = new Player();
+    game.player.team.push(new Codemon(CODEMON_SPECIES[0], 10));
+    game.currentArea = 0;
+    game.beginBattle = (enemy, message) => { game.enemy = enemy; game.message = message; };
+    ctx.pick = () => roll;
+    const real = vm.runInContext('Math.random', ctx);
+    vm.runInContext('Math.random = pick', ctx);
+    try { game.startEncounter(); } finally { ctx.pick = real; vm.runInContext('Math.random = pick', ctx); }
+    return game;
+  };
+  const lucky = encounter(0);
+  assert.equal(lucky.enemy.shiny, true);
+  assert.match(lucky.message, /shiny/);
+  const usual = encounter(0.5);
+  assert.equal(usual.enemy.shiny, false);
+  assert.doesNotMatch(usual.message, /shiny/);
+});
+
+test('guardians are never shiny', () => {
+  const game = Object.create(CodemonGame.prototype);
+  assert.equal(game.makeGuardian(0).shiny, false);
+});
