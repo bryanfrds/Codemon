@@ -758,3 +758,7 @@ body {
 /* An area you can't enter yet: dimmed, with a lock after its name. */
 .area-btn.locked { opacity: 0.45; cursor: not-allowed; }
 .area-btn.locked::after { content: ' 🔒'; }
+
+/* Sound on/off, sitting with the header stats. */
+.mute-btn { cursor: pointer; font-size: 18px; color: inherit; font-family: inherit; }
+.mute-btn:hover { border-color: var(--accent, #a855f7); }

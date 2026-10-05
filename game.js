@@ -32,6 +32,17 @@ const SAVE_VERSION = 1;          // bump if the saved shape changes
 
 const EVOLVE_MS = 1800;   // length of the evolution animation
 
+/** Play a named sound from audio.js, if it's loaded (it isn't in the Node tests). */
+function playSound(name, delay = 0) {
+  if (typeof SOUND !== 'undefined') SOUND.play(name, delay);
+}
+
+/** Which sound a landed move makes: a hit by how well it matched up, or a miss. */
+function hitSound(ev) {
+  if (ev.kind !== 'hit') return 'miss';
+  return ev.effectiveness > 1 ? 'super' : ev.effectiveness < 1 ? 'weak' : 'hit';
+}
+
 /** Two canvas filters as one; either may be empty or 'none'. */
 function withFilter(a, b) {
   const parts = [a, b].filter(f => f && f !== 'none');
@@ -168,6 +179,16 @@ class CodemonGame {
     document.getElementById('cancelCatchBtn').addEventListener('click', () => this.closeCatchModal());
     document.getElementById('closeMoveModalBtn').addEventListener('click', () => this.closeMoveModal());
     document.getElementById('navShop').addEventListener('click', () => this.openShop());
+    // Sound on/off, remembered in this browser (see audio.js).
+    const muteBtn = document.getElementById('muteBtn');
+    if (muteBtn && typeof SOUND !== 'undefined') {
+      const show = () => {
+        muteBtn.textContent = SOUND.muted ? '🔇' : '🔊';
+        muteBtn.setAttribute('aria-pressed', String(!SOUND.muted));   // pressed = sound on
+      };
+      show();
+      muteBtn.addEventListener('click', () => { SOUND.toggleMute(); show(); });
+    }
     document.getElementById('navGuardian').addEventListener('click', () => this.challengeGuardian());
     document.getElementById('closeShopBtn').addEventListener('click', () =>
       document.getElementById('shopModal').classList.add('hidden'));
@@ -350,6 +371,7 @@ class CodemonGame {
       (lead.level + jitter) * 0.95 * Math.sqrt(starterTotal / total(species))));
     const enemy = new Codemon(species, enemyLevel);
     enemy.shiny = rollShiny(Math.random());
+    if (enemy.shiny) playSound('shiny');
     this.beginBattle(enemy, enemy.shiny ? `✨ A shiny wild ${enemy.species.name} appeared!`
                                         : `Wild ${enemy.species.name} appeared!`);
   }
@@ -377,6 +399,7 @@ class CodemonGame {
 
   /** Record the current area's guardian as beaten and pay out. Returns the area it opens. */
   beatGuardian() {
+    this.queueSound('guardian');
     if (!this.guardiansBeaten.includes(this.currentArea)) this.guardiansBeaten.push(this.currentArea);
     this.player.addGold(GUARDIAN_GOLD);
     this.battle.addLog(`Guardian beaten! +${GUARDIAN_GOLD} Gold.`);
@@ -514,6 +537,7 @@ class CodemonGame {
           return;
         }
         if (!this.player.buy(kind)) return;
+        playSound('coin');
         this.updateStats();
         this.saveGame();
         this.setStatus(`Bought a ${(names[kind] || kind).replace(/^\S+ /, '')} for ${price} gold.`);
@@ -605,8 +629,10 @@ class CodemonGame {
     if (this.battle.guardian) return;   // see showCatchOptions
     const ballType = this.player.items.pokeball > 0 ? 'pokeball' : 'greatball';
     if (this.player.useItem(ballType)) {
+      playSound('throw');
       const success = this.battle.attemptCatch(ballType);
       this.updateBattleUI();
+      playSound(success ? 'caught' : 'escaped', 0.18);   // after the throw, not on top of it
 
       if (success) {
         const newCodemon = new Codemon(this.battle.enemyCodemon.species, this.battle.enemyCodemon.level);
@@ -673,7 +699,11 @@ class CodemonGame {
         // levelled up. Award based on what the enemy was worth instead.
         const enemy = this.battle.enemyCodemon;
         const exp = Math.max(1, Math.floor(enemy.level * 8 + enemy.species.baseHp * 0.5));
+        const levelBefore = this.battle.playerCodemon.level;
         this.battle.playerCodemon.gainExp(exp);
+        // Played once the knockout has shown on screen (see flushQueuedSound). Only
+        // the last queued sound plays, so a guardian's fanfare replaces this chime.
+        if (this.battle.playerCodemon.level > levelBefore) this.queueSound('levelUp');
         this.player.addGold(50);
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
         const opened = this.battle.guardian ? this.beatGuardian() : null;
@@ -827,6 +857,7 @@ class CodemonGame {
    * potion restores HP, so every later fight was an instant loss.
    */
   blackOut() {
+    playSound('faint');
     this.player.team.forEach(c => { c.currentHp = c.hp; });
     const lost = Math.floor(this.player.gold / 2);
     this.player.gold -= lost;
@@ -1184,6 +1215,29 @@ class CodemonGame {
              flow: '#38bdf8' }[type] || '#f1f5f9';
   }
 
+  /** A sound to play once the current animations finish, so it isn't early. */
+  /** Hold a sound until the battle animation finishes. A later one replaces it. */
+  queueSound(name) {
+    if (!this.fx) this.fx = { active: null, particles: [], texts: [], rings: [] };
+    this.fx.queuedSound = name;
+  }
+
+  flushQueuedSound() {
+    if (this.fx.queuedSound && !this.fxBusy()) {
+      playSound(this.fx.queuedSound);
+      this.fx.queuedSound = null;
+    }
+  }
+
+  /** Start the evolution animation (and its sound) once the last hit has landed. */
+  startEvolutionIfReady(now) {
+    const evo = this.fx.evolution;
+    if (evo && evo.t0 === null && !this.fxBusy()) {
+      evo.t0 = now;
+      playSound('evolve');
+    }
+  }
+
   /** Little four-point stars that twinkle around a shiny CodeMon. */
   drawSparkles(ctx, x, y, size, now) {
     ctx.save();
@@ -1255,6 +1309,7 @@ class CodemonGame {
         if (!a.landed && p >= IMPACT) {
           a.landed = true;
           this.burst(from.x, from.y, ev.kind === 'heal' ? '#4ade80' : '#60a5fa', 12, -1);
+          playSound('heal');
           this.floatText(from.x, from.y - from.r,
                          ev.kind === 'heal' ? `+${ev.userHp - ev.userHpBefore}` : 'DEF UP',
                          ev.kind === 'heal' ? '#4ade80' : '#60a5fa');
@@ -1270,6 +1325,7 @@ class CodemonGame {
         if (!a.landed && p >= IMPACT) {
           a.landed = true;
           if (ev.kind === 'hit') {
+            playSound(hitSound(ev));
             this.burst(to.x, to.y, color, 18, 0);
             this.fx.rings.push({ x: to.x, y: to.y, color, t0: now });
             this.floatText(to.x, to.y - to.r, `-${ev.damage}`, '#ff5a5a');
@@ -1277,6 +1333,7 @@ class CodemonGame {
             if (ev.effectiveness > 1) this.floatText(to.x, to.y - to.r - 22, 'SUPER EFFECTIVE', '#facc15', 12);
             else if (ev.effectiveness < 1) this.floatText(to.x, to.y - to.r - 22, 'NOT VERY EFFECTIVE', '#94a3b8', 12);
           } else {
+            playSound(hitSound(ev));
             this.floatText(to.x, to.y - to.r, 'MISS', '#cbd5e1');
           }
           this.updateBattleUI();
@@ -1421,7 +1478,8 @@ class CodemonGame {
     // Evolution: the old form swells with white light, flashes, and the new
     // form appears out of the glow, which then settles into its own colour.
     const evo = this.fx.evolution;
-    if (evo && evo.t0 === null && !this.fxBusy()) evo.t0 = now;   // after the last hit lands
+    this.startEvolutionIfReady(now);
+    this.flushQueuedSound();
     const ep = !evo ? 1 : evo.t0 === null ? 0 : (now - evo.t0) / EVOLVE_MS;
     if (evo && ep >= 1) this.fx.evolution = null;
     if (ep < 1) {
