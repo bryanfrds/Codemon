@@ -868,6 +868,10 @@ class CodemonGame {
   }
 
   endBattle() {
+    // On a slow device the battle can close before the animations finish, so
+    // play a win sound that's still waiting rather than drop it.
+    if (this.fx.queuedSound) playSound(this.fx.queuedSound);
+    this.fx.queuedSound = null;
     this.battle = null;
     this.fx.evolution = null;
     this.updateTeamUI();
