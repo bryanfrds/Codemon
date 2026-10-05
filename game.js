@@ -33,8 +33,14 @@ const SAVE_VERSION = 1;          // bump if the saved shape changes
 const EVOLVE_MS = 1800;   // length of the evolution animation
 
 /** Play a named sound from audio.js, if it's loaded (it isn't in the Node tests). */
-function playSound(name) {
-  if (typeof SOUND !== 'undefined') SOUND.play(name);
+function playSound(name, delay = 0) {
+  if (typeof SOUND !== 'undefined') SOUND.play(name, delay);
+}
+
+/** Which sound a landed move makes: a hit by how well it matched up, or a miss. */
+function hitSound(ev) {
+  if (ev.kind !== 'hit') return 'miss';
+  return ev.effectiveness > 1 ? 'super' : ev.effectiveness < 1 ? 'weak' : 'hit';
 }
 
 /** Two canvas filters as one; either may be empty or 'none'. */
@@ -176,7 +182,10 @@ class CodemonGame {
     // Sound on/off, remembered in this browser (see audio.js).
     const muteBtn = document.getElementById('muteBtn');
     if (muteBtn && typeof SOUND !== 'undefined') {
-      const show = () => { muteBtn.textContent = SOUND.muted ? '🔇' : '🔊'; };
+      const show = () => {
+        muteBtn.textContent = SOUND.muted ? '🔇' : '🔊';
+        muteBtn.setAttribute('aria-pressed', String(!SOUND.muted));   // pressed = sound on
+      };
       show();
       muteBtn.addEventListener('click', () => { SOUND.toggleMute(); show(); });
     }
@@ -390,7 +399,7 @@ class CodemonGame {
 
   /** Record the current area's guardian as beaten and pay out. Returns the area it opens. */
   beatGuardian() {
-    playSound('guardian');
+    this.queueSound('guardian');
     if (!this.guardiansBeaten.includes(this.currentArea)) this.guardiansBeaten.push(this.currentArea);
     this.player.addGold(GUARDIAN_GOLD);
     this.battle.addLog(`Guardian beaten! +${GUARDIAN_GOLD} Gold.`);
@@ -623,7 +632,7 @@ class CodemonGame {
       playSound('throw');
       const success = this.battle.attemptCatch(ballType);
       this.updateBattleUI();
-      playSound(success ? 'caught' : 'escaped');
+      playSound(success ? 'caught' : 'escaped', 0.18);   // after the throw, not on top of it
 
       if (success) {
         const newCodemon = new Codemon(this.battle.enemyCodemon.species, this.battle.enemyCodemon.level);
@@ -692,8 +701,9 @@ class CodemonGame {
         const exp = Math.max(1, Math.floor(enemy.level * 8 + enemy.species.baseHp * 0.5));
         const levelBefore = this.battle.playerCodemon.level;
         this.battle.playerCodemon.gainExp(exp);
-        // The guardian's fanfare wins over a level-up chime if both happen.
-        if (!this.battle.guardian && this.battle.playerCodemon.level > levelBefore) playSound('levelUp');
+        // Played once the knockout has shown on screen (see flushQueuedSound). Only
+        // the last queued sound plays, so a guardian's fanfare replaces this chime.
+        if (this.battle.playerCodemon.level > levelBefore) this.queueSound('levelUp');
         this.player.addGold(50);
         this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
         const opened = this.battle.guardian ? this.beatGuardian() : null;
@@ -1205,6 +1215,29 @@ class CodemonGame {
              flow: '#38bdf8' }[type] || '#f1f5f9';
   }
 
+  /** A sound to play once the current animations finish, so it isn't early. */
+  /** Hold a sound until the battle animation finishes. A later one replaces it. */
+  queueSound(name) {
+    if (!this.fx) this.fx = { active: null, particles: [], texts: [], rings: [] };
+    this.fx.queuedSound = name;
+  }
+
+  flushQueuedSound() {
+    if (this.fx.queuedSound && !this.fxBusy()) {
+      playSound(this.fx.queuedSound);
+      this.fx.queuedSound = null;
+    }
+  }
+
+  /** Start the evolution animation (and its sound) once the last hit has landed. */
+  startEvolutionIfReady(now) {
+    const evo = this.fx.evolution;
+    if (evo && evo.t0 === null && !this.fxBusy()) {
+      evo.t0 = now;
+      playSound('evolve');
+    }
+  }
+
   /** Little four-point stars that twinkle around a shiny CodeMon. */
   drawSparkles(ctx, x, y, size, now) {
     ctx.save();
@@ -1292,7 +1325,7 @@ class CodemonGame {
         if (!a.landed && p >= IMPACT) {
           a.landed = true;
           if (ev.kind === 'hit') {
-            playSound(ev.effectiveness > 1 ? 'super' : ev.effectiveness < 1 ? 'weak' : 'hit');
+            playSound(hitSound(ev));
             this.burst(to.x, to.y, color, 18, 0);
             this.fx.rings.push({ x: to.x, y: to.y, color, t0: now });
             this.floatText(to.x, to.y - to.r, `-${ev.damage}`, '#ff5a5a');
@@ -1300,7 +1333,7 @@ class CodemonGame {
             if (ev.effectiveness > 1) this.floatText(to.x, to.y - to.r - 22, 'SUPER EFFECTIVE', '#facc15', 12);
             else if (ev.effectiveness < 1) this.floatText(to.x, to.y - to.r - 22, 'NOT VERY EFFECTIVE', '#94a3b8', 12);
           } else {
-            playSound('miss');
+            playSound(hitSound(ev));
             this.floatText(to.x, to.y - to.r, 'MISS', '#cbd5e1');
           }
           this.updateBattleUI();
@@ -1445,10 +1478,8 @@ class CodemonGame {
     // Evolution: the old form swells with white light, flashes, and the new
     // form appears out of the glow, which then settles into its own colour.
     const evo = this.fx.evolution;
-    if (evo && evo.t0 === null && !this.fxBusy()) {               // after the last hit lands
-      evo.t0 = now;
-      playSound('evolve');
-    }
+    this.startEvolutionIfReady(now);
+    this.flushQueuedSound();
     const ep = !evo ? 1 : evo.t0 === null ? 0 : (now - evo.t0) / EVOLVE_MS;
     if (evo && ep >= 1) this.fx.evolution = null;
     if (ep < 1) {
