@@ -203,3 +203,15 @@ test('a win sound waits for an evolution to finish instead of playing over it', 
   game.flushQueuedSound();
   assert.deepEqual([...heard], ['evolve', 'levelUp']);
 });
+
+test('a win sound still waiting when the battle closes plays then, once', () => {
+  const { game, heard } = gameHearing();
+  Object.assign(game, { updateTeamUI() {}, updateStats() {}, switchView() {}, saveGame() {} });
+  game.fxBusy = () => true;                      // the frames fell behind
+  game.queueSound('guardian');
+  CodemonGame.prototype.endBattle.call(game);
+  assert.deepEqual([...heard], ['guardian']);
+  game.fxBusy = () => false;
+  game.flushQueuedSound();
+  assert.deepEqual([...heard], ['guardian']);
+});
