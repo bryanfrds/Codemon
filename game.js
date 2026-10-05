@@ -173,6 +173,13 @@ class CodemonGame {
     document.getElementById('cancelCatchBtn').addEventListener('click', () => this.closeCatchModal());
     document.getElementById('closeMoveModalBtn').addEventListener('click', () => this.closeMoveModal());
     document.getElementById('navShop').addEventListener('click', () => this.openShop());
+    // Sound on/off, remembered in this browser (see audio.js).
+    const muteBtn = document.getElementById('muteBtn');
+    if (muteBtn && typeof SOUND !== 'undefined') {
+      const show = () => { muteBtn.textContent = SOUND.muted ? '🔇' : '🔊'; };
+      show();
+      muteBtn.addEventListener('click', () => { SOUND.toggleMute(); show(); });
+    }
     document.getElementById('navGuardian').addEventListener('click', () => this.challengeGuardian());
     document.getElementById('closeShopBtn').addEventListener('click', () =>
       document.getElementById('shopModal').classList.add('hidden'));
