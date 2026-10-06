@@ -14124,6 +14124,18 @@ function guardianSpecies(lo, hi) {
     .reduce((best, sp) => (!best || rank(sp) > rank(best) ? sp : best), null);
 }
 
+/**
+ * `level`, scaled for how strong `species` is next to the starters: a species
+ * with better base stats comes in a few levels lower, so a fight is close
+ * rather than even-on-paper. Not rounded.
+ */
+function levelForStrength(level, species) {
+  const starterTotal = [1, 2, 5]
+    .map(id => baseTotal(CODEMON_SPECIES.find(sp => sp.id === id)))
+    .reduce((a, b) => a + b) / 3;
+  return level * Math.sqrt(starterTotal / baseTotal(species));
+}
+
 /** Area 0 is always open; any other needs the previous area's guardian beaten. */
 function isAreaOpen(beaten, areaIdx) {
   return areaIdx === 0 || beaten.includes(areaIdx - 1);
@@ -14333,6 +14345,7 @@ window.nextRestock = nextRestock;
 window.evolutionFor = evolutionFor;
 window.evolveFully = evolveFully;
 window.guardianSpecies = guardianSpecies;
+window.levelForStrength = levelForStrength;
 window.rollShiny = rollShiny;
 window.SHINY_FILTER = SHINY_FILTER;
 window.isAreaOpen = isAreaOpen;

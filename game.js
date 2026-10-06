@@ -362,13 +362,8 @@ class CodemonGame {
     // starters. Tuned by simulating 900 fights per setting: roughly 65% wins
     // early on, falling to ~20% in Debug Canyon with only a starter.
     const lead = this.player.getActiveCodemon();
-    const total = (sp) => sp.baseHp + sp.baseAtk + sp.baseDef + sp.baseSp + sp.baseSpd;
-    const starterTotal = [1, 2, 5]
-      .map(id => total(CODEMON_SPECIES.find(sp => sp.id === id)))
-      .reduce((a, b) => a + b) / 3;
     const jitter = Math.floor(Math.random() * 3) - 1;
-    const enemyLevel = Math.max(1, Math.round(
-      (lead.level + jitter) * 0.95 * Math.sqrt(starterTotal / total(species))));
+    const enemyLevel = Math.max(1, Math.round(levelForStrength((lead.level + jitter) * 0.95, species)));
     const enemy = new Codemon(species, enemyLevel);
     enemy.shiny = rollShiny(Math.random());
     if (enemy.shiny) playSound('shiny');
