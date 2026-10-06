@@ -20,6 +20,16 @@ class BattleState {
     this.defBoost = { player: 1, enemy: 1 };
   }
 
+  /** A trainer's next CodeMon takes the fainted one's place, and the fight goes on. */
+  sendOutEnemy(codemon) {
+    this.enemyCodemon = codemon;
+    this.enemySpeed = codemon.stats.spd;
+    this.defBoost.enemy = 1;   // Harden belonged to the one that fainted
+    this.battleOver = false;
+    this.winner = null;
+    this.playerWon = false;
+  }
+
   determineOrder() {
     // Faster creature goes first
     return this.playerSpeed >= this.enemySpeed ? 'player' : 'enemy';
