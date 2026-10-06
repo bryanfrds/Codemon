@@ -29,6 +29,7 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 - **Catching** with Pokéballs and Great Balls; weaken a CodeMon first for better odds.
 - **Items** — potions to heal mid-fight.
 - **Area guardians**: each area has a guardian, its strongest CodeMon at a fixed level (12, 20, 28, 36) with extra HP. Beat it with the 👑 Guardian button to open the next area and win 200 gold. Guardians can't be caught or run from, and locked areas show a 🔒. On autoplay, it challenges the guardian once the lead reaches its level and moves on to the new area after a win. After a loss it waits until the lead is two levels stronger before trying again.
+- **Trainer battles**: each area has a trainer (Intern Ivy, Sysadmin Sam, Hacker Hex and Architect Ada) with three of that area's CodeMon, sent out one after another with no break to heal. Challenge them with the 🎓 Trainer button. Beating a trainer pays 120 gold on top of the usual 50 per knockout. Losing is a normal blackout, and their CodeMon can't be caught or run from. Trainers are optional: the guardian still opens the next area. Their levels were tuned by simulation so a lone evolved starter, two levels under the guardian, wins about 65% of the time. Autoplay takes the trainer on at that level, and waits two more levels after a loss.
 - **Sound effects**, synthesised in code with the Web Audio API, so there are no audio files. Hits, misses, super-effective hits, heals, catches, level-ups, evolution, shinies, guardian wins, the shop and blackouts all have their own sound. The 🔊 button in the header mutes them, and the choice is remembered.
 - **Shiny CodeMon**: about 1 wild CodeMon in 64 is shiny, in different colours with a sparkle. They're just for show, with the same stats. A shiny stays shiny when you catch it and when it evolves, and it's marked ✨ in your team.
 - **Evolution** — win a fight at level 16 and your CodeMon evolves into a stronger one of the same type, then again at 32. It flashes white as it changes, and evolved CodeMon keep a soft glow in their type's colour, brighter at the final stage.
@@ -71,7 +72,7 @@ Progress saves automatically in your browser, after each battle, when you change
 1. Choose a starter.
 2. Walk around with the arrow buttons, or press **ENCOUNTER** to find a wild CodeMon.
 3. In battle: **MOVE** to attack, **ITEM** for a potion, **CATCH** to throw a ball, **SWITCH** to swap team members, **RUN** to flee.
-4. Beat an area's **👑 Guardian** to open the next one, then change area from the **AREAS** panel to meet different CodeMon.
+4. Take on an area's **🎓 Trainer** for extra gold, if you like. Beat its **👑 Guardian** to open the next one, then change area from the **AREAS** panel to meet different CodeMon.
 5. Spend gold in the **SHOP** between fights.
 6. Or press **🤖 AUTOPLAY** and let it play.
 
