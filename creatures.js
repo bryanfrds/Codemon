@@ -14136,6 +14136,33 @@ function levelForStrength(level, species) {
   return level * Math.sqrt(starterTotal / baseTotal(species));
 }
 
+// Area trainers: an optional fight in each area against a computer trainer with
+// three CodeMon, one after another, with no break to heal in between. Beating
+// one pays gold; it doesn't open anything. Levels are per area, then scaled
+// for each species' strength the way wild ones are. They were picked by
+// simulating 400 fights per level with a lone evolved starter two levels under
+// the guardian, where autoplay takes the trainer on: each wins about 65%.
+// (A shared fraction of the guardian's level was 0% in the first area, where
+// starters haven't evolved yet, and 100% in the last.)
+const TRAINER_NAMES = ['Intern Ivy', 'Sysadmin Sam', 'Hacker Hex', 'Architect Ada'];
+const TRAINER_LEVELS = [5, 16, 24, 36];
+const TRAINER_GOLD = 120;
+
+/**
+ * A trainer's team for an area whose wild CodeMon are ids lo..hi: three species
+ * spread across the area (never its guardian), around `level` once scaled for
+ * strength, the last a level up on the first. Always the same team, so the
+ * trainer you lost to is the one you face again.
+ */
+function trainerTeam(lo, hi, level) {
+  const guardian = guardianSpecies(lo, hi);
+  const pool = CODEMON_SPECIES.filter(sp => sp.id >= lo && sp.id <= hi && sp !== guardian);
+  return [0.25, 0.5, 0.75].map((f, i) => {
+    const species = pool[Math.floor(f * (pool.length - 1))];
+    return { species, level: Math.max(2, Math.round(levelForStrength(level + i - 1, species))) };
+  });
+}
+
 /** Area 0 is always open; any other needs the previous area's guardian beaten. */
 function isAreaOpen(beaten, areaIdx) {
   return areaIdx === 0 || beaten.includes(areaIdx - 1);
@@ -14345,6 +14372,7 @@ window.nextRestock = nextRestock;
 window.evolutionFor = evolutionFor;
 window.evolveFully = evolveFully;
 window.guardianSpecies = guardianSpecies;
+window.trainerTeam = trainerTeam;
 window.levelForStrength = levelForStrength;
 window.rollShiny = rollShiny;
 window.SHINY_FILTER = SHINY_FILTER;
