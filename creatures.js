@@ -14138,14 +14138,17 @@ function levelForStrength(level, species) {
 
 // Area trainers: an optional fight in each area against a computer trainer with
 // three CodeMon, one after another, with no break to heal in between. Beating
-// one pays gold; it doesn't open anything. Levels are per area, then scaled
-// for each species' strength the way wild ones are. They were picked by
-// simulating 400 fights per level with a lone evolved starter two levels under
-// the guardian, where autoplay takes the trainer on: each wins about 65%.
-// (A shared fraction of the guardian's level was 0% in the first area, where
-// starters haven't evolved yet, and 100% in the last.)
+// one pays gold; it doesn't open anything. TRAINER_LEVELS are per area, then
+// scaled for each species' strength the way wild ones are, which brings every
+// trainer CodeMon under its guardian's level. They were picked with
+// scripts/sim-trainers.mjs (a lone evolved starter at the guardian's level - 2,
+// no items) so that even the weakest starter usually has a chance. A lone
+// starter there wins (Byteling/BitRiot/Flowy): 45/97/100%, 31/100/100%,
+// 67/100/100% and 53/59/100%. Starter choice matters more than any one level:
+// Byteling struggles in the middle two areas at every level that leaves the
+// others a fight.
 const TRAINER_NAMES = ['Intern Ivy', 'Sysadmin Sam', 'Hacker Hex', 'Architect Ada'];
-const TRAINER_LEVELS = [5, 16, 24, 36];
+const TRAINER_LEVELS = [6, 15, 23, 44];
 const TRAINER_GOLD = 120;
 
 /**
