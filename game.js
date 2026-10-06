@@ -61,6 +61,8 @@ class CodemonGame {
     // blackout, at the same level, and could lose forever.
     this.guardianRetryLevel = {};
     this.justOpenedArea = false; // autoplay moves on only right after a guardian win
+    this.trainersBeaten = [];    // areas whose trainer is beaten
+    this.trainerRetryLevel = {}; // like guardianRetryLevel, for trainers
     this.playerPos = { x: 250, y: 200 };      // where the sprite is drawn
     this.playerTarget = { x: 250, y: 200 };   // where it's walking to
     this.facing = 1;                          // 1 = right, -1 = left
@@ -190,6 +192,7 @@ class CodemonGame {
       muteBtn.addEventListener('click', () => { SOUND.toggleMute(); show(); });
     }
     document.getElementById('navGuardian').addEventListener('click', () => this.challengeGuardian());
+    document.getElementById('navTrainer').addEventListener('click', () => this.challengeTrainer());
     document.getElementById('closeShopBtn').addEventListener('click', () =>
       document.getElementById('shopModal').classList.add('hidden'));
 
@@ -362,13 +365,8 @@ class CodemonGame {
     // starters. Tuned by simulating 900 fights per setting: roughly 65% wins
     // early on, falling to ~20% in Debug Canyon with only a starter.
     const lead = this.player.getActiveCodemon();
-    const total = (sp) => sp.baseHp + sp.baseAtk + sp.baseDef + sp.baseSp + sp.baseSpd;
-    const starterTotal = [1, 2, 5]
-      .map(id => total(CODEMON_SPECIES.find(sp => sp.id === id)))
-      .reduce((a, b) => a + b) / 3;
     const jitter = Math.floor(Math.random() * 3) - 1;
-    const enemyLevel = Math.max(1, Math.round(
-      (lead.level + jitter) * 0.95 * Math.sqrt(starterTotal / total(species))));
+    const enemyLevel = Math.max(1, Math.round(levelForStrength((lead.level + jitter) * 0.95, species)));
     const enemy = new Codemon(species, enemyLevel);
     enemy.shiny = rollShiny(Math.random());
     if (enemy.shiny) playSound('shiny');
@@ -408,18 +406,19 @@ class CodemonGame {
     return this.currentArea + 1;
   }
 
+  /** Why a guardian or trainer fight can't start now (`foe` names it), or null if it can. */
+  bigFightBlocked(foe) {
+    if (this.battle) return 'Finish the current fight first.';
+    if (!this.player.team.length) return 'Choose a starter first.';
+    if (!this.player.team.some(c => c.currentHp > 0)) return `Your team needs to rest before facing ${foe}.`;
+    return null;
+  }
+
   /** Fight this area's guardian; beating it opens the next area. */
   challengeGuardian() {
-    if (this.battle) {
-      this.setStatus('Finish the current fight first.');
-      return;
-    }
-    if (!this.player.team.length) {
-      this.setStatus('Choose a starter first.');
-      return;
-    }
-    if (!this.player.team.some(c => c.currentHp > 0)) {
-      this.setStatus('Your team needs to rest before facing a guardian.');
+    const blocked = this.bigFightBlocked('a guardian');
+    if (blocked) {
+      this.setStatus(blocked);
       return;
     }
     if (this.guardiansBeaten.includes(this.currentArea)) {
@@ -430,6 +429,54 @@ class CodemonGame {
     this.beginBattle(guardian, `👑 The guardian ${guardian.species.name} (Lvl ${guardian.level}) blocks the way!`, true);
   }
 
+  /** This area's trainer: a name and three fresh CodeMon, the first one up front. */
+  makeTrainer(areaIdx) {
+    const ids = AREAS[areaIdx].possibleEncounters;
+    const team = trainerTeam(ids[0], ids[ids.length - 1], TRAINER_LEVELS[areaIdx])
+      .map(t => new Codemon(t.species, t.level));
+    return { name: TRAINER_NAMES[areaIdx], rest: team.slice(1), first: team[0], waiting: false };
+  }
+
+  /** Fight this area's trainer: three CodeMon in a row, for gold. */
+  challengeTrainer() {
+    const blocked = this.bigFightBlocked('a trainer');
+    if (blocked) {
+      this.setStatus(blocked);
+      return;
+    }
+    if (this.trainersBeaten.includes(this.currentArea)) {
+      this.setStatus(`You've already beaten ${TRAINER_NAMES[this.currentArea]}.`);
+      return;
+    }
+    const trainer = this.makeTrainer(this.currentArea);
+    this.beginBattle(trainer.first, `🎓 ${trainer.name} wants to battle! First up: ${trainer.first.species.name} (Lvl ${trainer.first.level}).`);
+    this.battle.trainer = trainer;
+    this.updateBattleUI();
+  }
+
+  /**
+   * After a trainer's CodeMon faints, the next comes out once the knockout (and
+   * any evolution) has finished on screen. Called every frame from renderBattle.
+   */
+  sendOutTrainerNext() {
+    const t = this.battle && this.battle.trainer;
+    if (!t || !t.waiting || this.fxBusy() || (this.fx && this.fx.evolution)) return;
+    t.waiting = false;
+    const next = t.rest.shift();
+    this.battle.sendOutEnemy(next);
+    this.battle.addLog(`${t.name} sends out ${next.species.name}!`);
+    this.updateBattleUI();
+    this.setStatus(`${t.name} sends out ${next.species.name} (Lvl ${next.level})!`);
+  }
+
+  /** Record this area's trainer as beaten and pay out. */
+  beatTrainer() {
+    this.queueSound('guardian');
+    if (!this.trainersBeaten.includes(this.currentArea)) this.trainersBeaten.push(this.currentArea);
+    this.player.addGold(TRAINER_GOLD);
+    this.battle.addLog(`${this.battle.trainer.name} is beaten! +${TRAINER_GOLD} Gold.`);
+  }
+
   // Battle
   updateBattleUI() {
     const playerCodemon = this.battle.playerCodemon;
@@ -437,7 +484,8 @@ class CodemonGame {
 
     document.getElementById('allyName').textContent = `${playerCodemon.shiny ? '✨ ' : ''}${playerCodemon.species.name}`;
     document.getElementById('enemyName').textContent =
-      `${this.battle.guardian ? '👑 Guardian' : enemyCodemon.shiny ? '✨ Shiny wild' : 'Wild'} ${enemyCodemon.species.name}`;
+      this.battle.trainer ? `🎓 ${this.battle.trainer.name}'s ${enemyCodemon.species.name}`
+      : `${this.battle.guardian ? '👑 Guardian' : enemyCodemon.shiny ? '✨ Shiny wild' : 'Wild'} ${enemyCodemon.species.name}`;
 
     this.updateHPBar('playerCodemon', playerCodemon);
     this.updateHPBar('enemyCodemon', enemyCodemon);
@@ -605,6 +653,10 @@ class CodemonGame {
       this.setStatus("Guardians can't be caught. Beat it to open the next area.");
       return;
     }
+    if (this.battle.trainer) {
+      this.setStatus("You can't catch a trainer's CodeMon.");
+      return;
+    }
     const info = document.getElementById('catchCreatureInfo');
     const enemy = this.battle.enemyCodemon;
     const probability = this.battle.calculateCatchProbability('pokeball');
@@ -626,7 +678,7 @@ class CodemonGame {
 
   confirmCatch() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
-    if (this.battle.guardian) return;   // see showCatchOptions
+    if (this.battle.guardian || this.battle.trainer) return;   // see showCatchOptions
     const ballType = this.player.items.pokeball > 0 ? 'pokeball' : 'greatball';
     if (this.player.useItem(ballType)) {
       playSound('throw');
@@ -656,8 +708,8 @@ class CodemonGame {
 
   attemptFlee() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
-    if (this.battle.guardian) {
-      this.setStatus('There is no running from a guardian.');
+    if (this.battle.guardian || this.battle.trainer) {
+      this.setStatus(`There is no running from a ${this.battle.guardian ? 'guardian' : 'trainer battle'}.`);
       return;
     }
     const success = this.battle.flee();
@@ -687,32 +739,51 @@ class CodemonGame {
     return { from, into: codemon.species };
   }
 
+  /** EXP and 50 gold for knocking out the foe, with the level-up chime. Returns the EXP. */
+  rewardKnockout() {
+    // enemyCodemon.exp is the enemy's *earned* exp, which is always 0 for a
+    // freshly spawned wild CodeMon — so every win awarded 0 and nothing ever
+    // levelled up. Award based on what the enemy was worth instead.
+    const enemy = this.battle.enemyCodemon;
+    const exp = Math.max(1, Math.floor(enemy.level * 8 + enemy.species.baseHp * 0.5));
+    const levelBefore = this.battle.playerCodemon.level;
+    this.battle.playerCodemon.gainExp(exp);
+    // Played once the knockout has shown on screen (see flushQueuedSound). Only
+    // the last queued sound plays, so a guardian's fanfare replaces this chime.
+    if (this.battle.playerCodemon.level > levelBefore) this.queueSound('levelUp');
+    this.player.addGold(50);
+    this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
+    return exp;
+  }
+
   checkBattleStatus() {
     // Once a finished fight has its endBattle (and maybe blackOut) scheduled,
     // further calls do nothing. A click during the 2s pause used to schedule a
     // second round: double gold and EXP for a win, gold halved twice for a loss.
-    if (this.battle.resolved) return;
+    // A trainer's next CodeMon is waiting to come out: that knockout is paid already.
+    if (this.battle.resolved || (this.battle.trainer && this.battle.trainer.waiting)) return;
     if (this.battle.battleOver) {
+      if (this.battle.playerWon && this.battle.trainer && this.battle.trainer.rest.length) {
+        const exp = this.rewardKnockout();
+        const evolved = this.evolveIfReady(this.battle.playerCodemon);
+        this.battle.trainer.waiting = true;   // see sendOutTrainerNext
+        this.updateBattleUI();
+        this.setStatus(evolved ? `${evolved.from.name} evolved into ${evolved.into.name}!`
+                               : `Gained ${exp} EXP. ${this.battle.trainer.name} has another CodeMon...`);
+        return;
+      }
       if (this.battle.playerWon) {
-        // enemyCodemon.exp is the enemy's *earned* exp, which is always 0 for a
-        // freshly spawned wild CodeMon — so every win awarded 0 and nothing ever
-        // levelled up. Award based on what the enemy was worth instead.
-        const enemy = this.battle.enemyCodemon;
-        const exp = Math.max(1, Math.floor(enemy.level * 8 + enemy.species.baseHp * 0.5));
-        const levelBefore = this.battle.playerCodemon.level;
-        this.battle.playerCodemon.gainExp(exp);
-        // Played once the knockout has shown on screen (see flushQueuedSound). Only
-        // the last queued sound plays, so a guardian's fanfare replaces this chime.
-        if (this.battle.playerCodemon.level > levelBefore) this.queueSound('levelUp');
-        this.player.addGold(50);
-        this.battle.addLog(`Gained ${exp} EXP and 50 Gold!`);
+        const exp = this.rewardKnockout();
         const opened = this.battle.guardian ? this.beatGuardian() : null;
+        if (this.battle.trainer) this.beatTrainer();
         const evolved = this.evolveIfReady(this.battle.playerCodemon);
         this.updateBattleUI();
         const evolvedNote = evolved ? ` ${evolved.from.name} evolved into ${evolved.into.name}!` : '';
         this.setStatus(opened !== null
           ? (opened < AREAS.length ? `👑 Guardian beaten! ${AREAS[opened].name} is open.`
                                    : '👑 The last guardian is beaten. Every area is yours!') + evolvedNote
+          : this.battle.trainer
+          ? `🎓 You beat ${this.battle.trainer.name}! +${TRAINER_GOLD} Gold.` + evolvedNote
           : evolved
           ? `Won battle! ${evolved.from.name} evolved into ${evolved.into.name}!`
           : `Won battle! Gained ${exp} EXP.`);
@@ -732,10 +803,10 @@ class CodemonGame {
           this.updateBattleUI();
         } else {
           this.setStatus('All CodeMons fainted!');
-          if (this.battle.guardian) {
-            // Try again only once the lead is 2 levels stronger than it was.
-            this.guardianRetryLevel[this.currentArea] = this.player.getActiveCodemon().level + 2;
-          }
+          // Autoplay tries again only once the lead is 2 levels stronger than it was.
+          const retry = this.player.getActiveCodemon().level + 2;
+          if (this.battle.guardian) this.guardianRetryLevel[this.currentArea] = retry;
+          if (this.battle.trainer) this.trainerRetryLevel[this.currentArea] = retry;
           this.battle.resolved = true;
           const lost = this.battle;
           setTimeout(() => {
@@ -768,6 +839,7 @@ class CodemonGame {
       pokedex: [...this.player.pokedex],
       area: this.currentArea,
       guardiansBeaten: this.guardiansBeaten,
+      trainersBeaten: this.trainersBeaten,
       team: this.player.team.map(c => ({
         species: c.species.id, level: c.level, exp: c.exp,
         expToLevel: c.expToLevel, hp: c.currentHp, shiny: c.shiny,
@@ -843,6 +915,10 @@ class CodemonGame {
       } else {
         this.guardiansBeaten = Array.from({ length: area }, (_, i) => i);
       }
+      // Trainers beaten: same rules, and none for a save from before trainers.
+      this.trainersBeaten = Array.isArray(data.trainersBeaten)
+        ? [...new Set(data.trainersBeaten.filter(a => Number.isInteger(a) && a >= 0 && a < AREAS.length))]
+        : [];
       this.updateAreaButtons();
       this.changeArea(isAreaOpen(this.guardiansBeaten, area) ? area : 0);
       return true;
@@ -1028,7 +1104,7 @@ class CodemonGame {
       // Worth a ball when it's weakened and the team has room.
       const enemy = this.battle.enemyCodemon;
       const weak = enemy.currentHp / enemy.hp < 0.4;
-      if (weak && !this.battle.guardian && this.player.items.pokeball > 0 && this.player.team.length < 6
+      if (weak && !this.battle.guardian && !this.battle.trainer && this.player.items.pokeball > 0 && this.player.team.length < 6
           && Math.random() < 0.5) {
         this.confirmCatch();
         return;
@@ -1084,11 +1160,22 @@ class CodemonGame {
       this.changeArea(area + 1);
       return;
     }
+    const lead = this.player.getActiveCodemon();
+    const fresh = lead.currentHp >= lead.hp * 0.7;
     if (!this.guardiansBeaten.includes(area)) {
-      const lead = this.player.getActiveCodemon();
       const ready = Math.max(GUARDIAN_LEVELS[area], this.guardianRetryLevel[area] || 0);
-      if (lead.level >= ready && lead.currentHp >= lead.hp * 0.7) {
+      if (lead.level >= ready && fresh) {
         this.challengeGuardian();
+        return;
+      }
+    }
+    // The trainer too, from 2 levels under the guardian (where TRAINER_LEVELS
+    // were tuned). It never blocks the guardian: that check comes first, and a
+    // loss here only raises the bar for the trainer.
+    if (!this.trainersBeaten.includes(area)) {
+      const ready = Math.max(GUARDIAN_LEVELS[area] - 2, this.trainerRetryLevel[area] || 0);
+      if (lead.level >= ready && fresh) {
+        this.challengeTrainer();
         return;
       }
     }
@@ -1484,6 +1571,7 @@ class CodemonGame {
     const evo = this.fx.evolution;
     this.startEvolutionIfReady(now);
     this.flushQueuedSound();
+    this.sendOutTrainerNext();
     const ep = !evo ? 1 : evo.t0 === null ? 0 : (now - evo.t0) / EVOLVE_MS;
     if (evo && ep >= 1) this.fx.evolution = null;
     if (ep < 1) {

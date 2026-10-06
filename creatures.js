@@ -14124,6 +14124,48 @@ function guardianSpecies(lo, hi) {
     .reduce((best, sp) => (!best || rank(sp) > rank(best) ? sp : best), null);
 }
 
+/**
+ * `level`, scaled for how strong `species` is next to the starters: a species
+ * with better base stats comes in a few levels lower, so a fight is close
+ * rather than even-on-paper. Not rounded.
+ */
+function levelForStrength(level, species) {
+  const starterTotal = [1, 2, 5]
+    .map(id => baseTotal(CODEMON_SPECIES.find(sp => sp.id === id)))
+    .reduce((a, b) => a + b) / 3;
+  return level * Math.sqrt(starterTotal / baseTotal(species));
+}
+
+// Area trainers: an optional fight in each area against a computer trainer with
+// three CodeMon, one after another, with no break to heal in between. Beating
+// one pays gold; it doesn't open anything. TRAINER_LEVELS are per area, then
+// scaled for each species' strength the way wild ones are, which brings every
+// trainer CodeMon under its guardian's level. They were picked with
+// scripts/sim-trainers.mjs (a lone evolved starter at the guardian's level - 2,
+// no items) so that even the weakest starter usually has a chance. A lone
+// starter there wins (Byteling/BitRiot/Flowy): 45/97/100%, 31/100/100%,
+// 67/100/100% and 53/59/100%. Starter choice matters more than any one level:
+// Byteling struggles in the middle two areas at every level that leaves the
+// others a fight.
+const TRAINER_NAMES = ['Intern Ivy', 'Sysadmin Sam', 'Hacker Hex', 'Architect Ada'];
+const TRAINER_LEVELS = [6, 15, 23, 44];
+const TRAINER_GOLD = 120;
+
+/**
+ * A trainer's team for an area whose wild CodeMon are ids lo..hi: three species
+ * spread across the area (never its guardian), around `level` once scaled for
+ * strength, the last a level up on the first. Always the same team, so the
+ * trainer you lost to is the one you face again.
+ */
+function trainerTeam(lo, hi, level) {
+  const guardian = guardianSpecies(lo, hi);
+  const pool = CODEMON_SPECIES.filter(sp => sp.id >= lo && sp.id <= hi && sp !== guardian);
+  return [0.25, 0.5, 0.75].map((f, i) => {
+    const species = pool[Math.floor(f * (pool.length - 1))];
+    return { species, level: Math.max(2, Math.round(levelForStrength(level + i - 1, species))) };
+  });
+}
+
 /** Area 0 is always open; any other needs the previous area's guardian beaten. */
 function isAreaOpen(beaten, areaIdx) {
   return areaIdx === 0 || beaten.includes(areaIdx - 1);
@@ -14333,6 +14375,8 @@ window.nextRestock = nextRestock;
 window.evolutionFor = evolutionFor;
 window.evolveFully = evolveFully;
 window.guardianSpecies = guardianSpecies;
+window.trainerTeam = trainerTeam;
+window.levelForStrength = levelForStrength;
 window.rollShiny = rollShiny;
 window.SHINY_FILTER = SHINY_FILTER;
 window.isAreaOpen = isAreaOpen;

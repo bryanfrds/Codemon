@@ -36,6 +36,8 @@ function makeGame(level = 50) {
   game.currentArea = 0;
   game.guardiansBeaten = [];
   game.guardianRetryLevel = {};
+  game.trainersBeaten = [];
+  game.trainerRetryLevel = {};
   game.justOpenedArea = false;
   game.status = '';
   game.setStatus = (m) => { game.status = m; };
@@ -164,6 +166,7 @@ test('after losing to a guardian, autoplay waits until the lead is 2 levels stro
   game.player.team[0].currentHp = game.player.team[0].hp;   // and healed the team
   let challenges = 0;
   game.challengeGuardian = () => { challenges++; };
+  game.challengeTrainer = () => {};               // (it may warm up on the trainer meanwhile)
   for (let i = 0; i < 10; i++) game.autoPlayStep();
   assert.equal(challenges, 0, 'not straight back in at the same level');
   game.player.team[0].level += 2;
