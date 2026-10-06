@@ -70,7 +70,7 @@ test("each area's trainer has three of that area's CodeMon, under its guardian, 
     for (const t of team) {
       assert.ok(ids.includes(t.species.id), `area ${i}`);
       assert.notEqual(t.species, guardian);
-      assert.ok(t.level < GUARDIAN_LEVELS[i]);
+      assert.ok(t.level < GUARDIAN_LEVELS[i], `area ${i}: ${t.species.name} at ${t.level}`);
     }
     assert.equal(new Set(team.map(t => t.species.id)).size, 3, 'three different CodeMon');
     // Scaled for strength like wild CodeMon, from TRAINER_LEVELS, one level apart.
@@ -82,7 +82,6 @@ test("each area's trainer has three of that area's CodeMon, under its guardian, 
   });
   assert.equal(TRAINER_NAMES.length, AREAS.length);
   assert.equal(TRAINER_LEVELS.length, AREAS.length);
-  TRAINER_LEVELS.forEach((lvl, i) => assert.ok(lvl <= GUARDIAN_LEVELS[i], `area ${i}: a warm-up, not harder`));
 });
 
 test('the game sends out exactly the team the rules describe', () => {
@@ -130,6 +129,22 @@ test("the battle screen names the trainer's CodeMon", () => {
   }));
   assert.equal(elements.enemyName.textContent,
                `🎓 ${TRAINER_NAMES[0]}'s ${game.battle.enemyCodemon.species.name}`);
+});
+
+test('the next CodeMon also waits for an evolution to finish', () => {
+  const game = makeGame();
+  game.challengeTrainer();
+  const first = game.battle.enemyCodemon;
+  game.battle.enemyCodemon.currentHp = 0;
+  game.battle.battleOver = true;
+  game.battle.playerWon = true;
+  game.checkBattleStatus();
+  game.fx.evolution = { t0: 1 };                  // the player's CodeMon is mid-evolution
+  game.sendOutTrainerNext();
+  assert.equal(game.battle.enemyCodemon, first);
+  game.fx.evolution = null;                       // the animation has finished
+  game.sendOutTrainerNext();
+  assert.notEqual(game.battle.enemyCodemon, first);
 });
 
 test('after a knockout the next CodeMon waits for the screen, then comes out', () => {
