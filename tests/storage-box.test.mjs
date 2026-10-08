@@ -125,6 +125,14 @@ test('the leader is always one that can fight, since battles send out the first'
   assert.ok(p.team[0].currentHp > 0);
 });
 
+test('a fighter taken out of the box leads a team that has none', () => {
+  const p = player(1, 1);
+  fainted(p.team[0]);
+  const fighter = p.box[0];
+  assert.equal(p.withdrawFromBox(0), true);
+  assert.equal(p.team[0], fighter);
+});
+
 test('bad indexes change nothing', () => {
   const p = player(3, 1);
   for (const [a, b] of [[-1, 0], [3, 0], [0, 1], [0, -1], [1.5, 0]]) {
