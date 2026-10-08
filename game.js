@@ -664,6 +664,7 @@ class CodemonGame {
       this.setStatus("You can't catch a trainer's CodeMon.");
       return;
     }
+    if (this.teamFull()) return;
     const info = document.getElementById('catchCreatureInfo');
     const enemy = this.battle.enemyCodemon;
     const probability = this.battle.calculateCatchProbability('pokeball');
@@ -686,6 +687,7 @@ class CodemonGame {
   confirmCatch() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     if (this.battle.guardian || this.battle.trainer) return;   // see showCatchOptions
+    if (this.teamFull()) { this.closeCatchModal(); return; }
     const ballType = this.player.items.pokeball > 0 ? 'pokeball' : 'greatball';
     if (this.player.useItem(ballType)) {
       playSound('throw');
@@ -707,6 +709,16 @@ class CodemonGame {
         this.checkBattleStatus();
       }
     }
+  }
+
+  /**
+   * A team holds 6 and there's nowhere else to keep a catch: a 7th used to be
+   * "caught", paid for, and quietly dropped along with the ball. Says so if full.
+   */
+  teamFull() {
+    if (this.player.team.length < 6) return false;
+    this.setStatus('Your team is full (6 CodeMon), so there is no room to catch another.');
+    return true;
   }
 
   closeCatchModal() {
