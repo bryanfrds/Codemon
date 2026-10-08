@@ -609,7 +609,7 @@ class CodemonGame {
         if (!this.battleActive()) { this.closeMoveModal(); return; }
         if (idx !== 0) {
           this.player.switchCodemon(idx);
-          this.battle.playerCodemon = this.player.getActiveCodemon();
+          this.battle.sendOutPlayer(this.player.getActiveCodemon());
           this.battle.addLog(`Switched to ${this.battle.playerCodemon.species.name}!`);
           this.battle.enemyTurn();
         }
@@ -797,7 +797,7 @@ class CodemonGame {
         this.setStatus('Your CodeMon fainted!');
         const availableCodemon = this.player.team.find(c => c.currentHp > 0);
         if (availableCodemon) {
-          this.battle.playerCodemon = availableCodemon;
+          this.battle.sendOutPlayer(availableCodemon);
           this.battle.battleOver = false;
           this.battle.log = [];
           this.updateBattleUI();
