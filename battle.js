@@ -20,10 +20,11 @@ class BattleState {
     this.defBoost = { player: 1, enemy: 1 };
   }
 
-  /** The player's next CodeMon, after a switch or a faint. Turn order and escape odds use its speed. */
+  /** The player's next CodeMon, after a switch or a faint. It brings its own speed and no Harden boost. */
   sendOutPlayer(codemon) {
     this.playerCodemon = codemon;
     this.playerSpeed = codemon.stats.spd;
+    this.defBoost.player = 1;   // Harden belonged to the one that left
   }
 
   /** A trainer's next CodeMon takes the fainted one's place, and the fight goes on. */
