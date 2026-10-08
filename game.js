@@ -652,36 +652,52 @@ class CodemonGame {
       this.renderBox();
     };
 
+    if (this.boxPick && !p.box.includes(this.boxPick)) this.boxPick = null;   // taken meanwhile
+    // Buttons hold the CodeMon, not its slot: autoplay can reorder the team while
+    // the box is open, and a slot number would then point at someone else.
     const teamList = document.getElementById('boxTeamList');
     teamList.innerHTML = '';
-    p.team.forEach((c, i) => {
+    p.team.forEach((c) => {
       const el = row(c);
-      if (this.boxPick !== null) {
-        const incoming = p.box[this.boxPick];
-        button(el, '⇄ Swap', () => done(p.swapWithBox(i, this.boxPick),
-          p.team[i] === incoming
-            ? `${incoming.species.name} joined the team and ${c.species.name} went to the box.`
-            : 'Your team needs at least one CodeMon that can fight.'));
+      if (this.boxPick) {
+        button(el, '⇄ Swap', () => {
+          const incoming = this.boxPick;
+          const ti = p.team.indexOf(c), bi = p.box.indexOf(incoming);
+          if (ti < 0 || bi < 0) { this.boxPick = null; this.renderBox(); return; }   // moved on meanwhile
+          const ok = p.swapWithBox(ti, bi);
+          done(ok, ok ? `${incoming.species.name} joined the team and ${c.species.name} went to the box.`
+            : 'Your team needs at least one CodeMon that can fight.');
+        });
       } else {
-        button(el, 'Store', () => done(p.depositToBox(i),
-          p.box.includes(c) ? `${c.species.name} went to the box.`
+        button(el, 'Store', () => {
+          const ti = p.team.indexOf(c);
+          if (ti < 0) { this.renderBox(); return; }
+          const ok = p.depositToBox(ti);
+          done(ok, ok ? `${c.species.name} went to the box.`
             : p.box.length >= BOX_SIZE ? 'The box is full.'
-            : 'Your team needs at least one CodeMon that can fight.'));
+            : 'Your team needs at least one CodeMon that can fight.');
+        });
       }
       teamList.appendChild(el);
     });
 
     const boxList = document.getElementById('boxStoredList');
     boxList.innerHTML = p.box.length ? '' : '<div class="empty-state">The box is empty. Catches go here once your team holds 6.</div>';
-    p.box.forEach((c, i) => {
-      const el = row(c, this.boxPick === i ? ' picked' : '');
+    p.box.forEach((c) => {
+      const el = row(c, this.boxPick === c ? ' picked' : '');
       if (p.team.length < TEAM_SIZE) {
-        button(el, 'Take', () => done(p.withdrawFromBox(i), `${c.species.name} joined the team.`));
-      } else if (this.boxPick === i) {
+        button(el, 'Take', () => {
+          const bi = p.box.indexOf(c);
+          if (bi < 0) { this.renderBox(); return; }
+          const ok = p.withdrawFromBox(bi);
+          done(ok, ok ? `${c.species.name} joined the team.` : 'Your team is full.');
+        });
+      } else if (this.boxPick === c) {
         button(el, 'Cancel', () => { this.boxPick = null; this.renderBox(); });
       } else {
         button(el, 'Swap', () => {
-          this.boxPick = i;
+          if (!p.box.includes(c)) { this.renderBox(); return; }
+          this.boxPick = c;
           this.setStatus(`Pick a team member to trade for ${c.species.name}.`);
           this.renderBox();
         });
