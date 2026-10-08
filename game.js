@@ -1103,8 +1103,9 @@ class CodemonGame {
       // Max HP is `hp` on a Codemon, not `maxHp` - reading the wrong one gives
       // NaN, every comparison is false, and it fights on at 0 HP with a full bag.
       if (me.currentHp / me.hp < 0.45 && this.player.items.potion > 0) {
+        const before = me.currentHp;
         this.player.usePotion();
-        this.battle.addLog('Used potion! Recovered 20 HP.');
+        this.battle.addLog(`Used potion! Recovered ${me.currentHp - before} HP.`);
         this.battle.enemyTurn();
         this.updateBattleUI();
         this.checkBattleStatus();
