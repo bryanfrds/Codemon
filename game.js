@@ -159,6 +159,8 @@ class CodemonGame {
     this.moveKeys = MOVE_KEYS;
     window.addEventListener('keydown', (e) => {
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      // B opens the storage box (it refuses itself mid-fight).
+      if (k === 'b' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) { this.openBox(); return; }
       if (!MOVE_KEYS[k] || !this.canWalk()) return;
       e.preventDefault();                     // arrows would scroll the page
       this.heldKeys.add(k);
@@ -181,6 +183,8 @@ class CodemonGame {
     document.getElementById('cancelCatchBtn').addEventListener('click', () => this.closeCatchModal());
     document.getElementById('closeMoveModalBtn').addEventListener('click', () => this.closeMoveModal());
     document.getElementById('navShop').addEventListener('click', () => this.openShop());
+    document.getElementById('navBox').addEventListener('click', () => this.openBox());
+    document.getElementById('closeBoxBtn').addEventListener('click', () => this.closeBox());
     // Sound on/off, remembered in this browser (see audio.js).
     const muteBtn = document.getElementById('muteBtn');
     if (muteBtn && typeof SOUND !== 'undefined') {
@@ -593,6 +597,96 @@ class CodemonGame {
       });
       list.appendChild(row);
     }
+  }
+
+  /**
+   * The storage box, where catches go once the team holds 6. Shut during a
+   * fight, like the shop, so the team can't change mid-battle.
+   */
+  openBox() {
+    if (this.battle) {
+      this.setStatus('Finish the fight before opening the box.');
+      return;
+    }
+    this.boxPick = null;
+    this.renderBox();
+    document.getElementById('boxModal').classList.remove('hidden');
+  }
+
+  closeBox() {
+    this.boxPick = null;
+    document.getElementById('boxModal').classList.add('hidden');
+  }
+
+  renderBox() {
+    const p = this.player;
+    document.getElementById('boxCount').textContent = `${p.box.length}/${BOX_SIZE}`;
+    const row = (c, extra = '') => {
+      const el = document.createElement('div');
+      el.className = `box-row${extra}`;
+      el.innerHTML = `
+        <span class="box-avatar">${SPRITES.imgFor(c.species, 28, c.shiny)}</span>
+        <span class="box-name">${c.shiny ? '✨ ' : ''}${c.species.name}
+          <span class="box-meta">Lvl ${c.level} · HP ${c.currentHp}/${c.hp}</span></span>`;
+      return el;
+    };
+    const button = (el, label, onClick) => {
+      const b = document.createElement('button');
+      b.className = 'btn btn-primary box-btn';
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        // Autoplay can start a fight while the box is open.
+        if (this.battle) { this.closeBox(); this.setStatus('Finish the fight before opening the box.'); return; }
+        onClick();
+      });
+      el.appendChild(b);
+    };
+    const done = (ok, message) => {
+      if (ok) {
+        this.boxPick = null;
+        this.updateTeamUI();
+        this.saveGame();
+      }
+      this.setStatus(message);
+      this.renderBox();
+    };
+
+    const teamList = document.getElementById('boxTeamList');
+    teamList.innerHTML = '';
+    p.team.forEach((c, i) => {
+      const el = row(c);
+      if (this.boxPick !== null) {
+        const incoming = p.box[this.boxPick];
+        button(el, '⇄ Swap', () => done(p.swapWithBox(i, this.boxPick),
+          p.team[i] === incoming
+            ? `${incoming.species.name} joined the team and ${c.species.name} went to the box.`
+            : 'Your team needs at least one CodeMon that can fight.'));
+      } else {
+        button(el, 'Store', () => done(p.depositToBox(i),
+          p.box.includes(c) ? `${c.species.name} went to the box.`
+            : p.box.length >= BOX_SIZE ? 'The box is full.'
+            : 'Your team needs at least one CodeMon that can fight.'));
+      }
+      teamList.appendChild(el);
+    });
+
+    const boxList = document.getElementById('boxStoredList');
+    boxList.innerHTML = p.box.length ? '' : '<div class="empty-state">The box is empty. Catches go here once your team holds 6.</div>';
+    p.box.forEach((c, i) => {
+      const el = row(c, this.boxPick === i ? ' picked' : '');
+      if (p.team.length < TEAM_SIZE) {
+        button(el, 'Take', () => done(p.withdrawFromBox(i), `${c.species.name} joined the team.`));
+      } else if (this.boxPick === i) {
+        button(el, 'Cancel', () => { this.boxPick = null; this.renderBox(); });
+      } else {
+        button(el, 'Swap in…', () => {
+          this.boxPick = i;
+          this.setStatus(`Pick a team member to trade for ${c.species.name}.`);
+          this.renderBox();
+        });
+      }
+      boxList.appendChild(el);
+    });
   }
 
   showSwitchTeam() {

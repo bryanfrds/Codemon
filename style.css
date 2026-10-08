@@ -762,3 +762,18 @@ body {
 /* Sound on/off, sitting with the header stats. */
 .mute-btn { cursor: pointer; font-size: 18px; color: inherit; font-family: inherit; }
 .mute-btn:hover { border-color: var(--accent, #a855f7); }
+
+/* Storage box */
+.box-modal { max-width: 640px; width: 92vw; }
+.box-count { font-size: 12px; color: #94a3b8; margin-left: 8px; }
+.box-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+@media (max-width: 560px) { .box-columns { grid-template-columns: 1fr; } }
+.box-heading { font-size: 12px; margin: 0 0 6px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+.box-list { display: grid; gap: 6px; }
+.box-stored { max-height: 46vh; overflow-y: auto; }
+.box-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: rgba(148, 163, 184, 0.08); }
+.box-row.picked { outline: 2px solid #f59e0b; }
+.box-avatar { flex: none; display: flex; }
+.box-name { flex: 1; font-size: 13px; min-width: 0; }
+.box-meta { display: block; font-size: 11px; color: #94a3b8; }
+.box-btn { flex: none; padding: 4px 10px; font-size: 12px; }
