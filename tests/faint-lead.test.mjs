@@ -6,7 +6,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const ctx = { window: { addEventListener() {} }, setTimeout: () => 0, document: {} };
+const buttons = [];
+const ctx = {
+  window: { addEventListener() {} },
+  setTimeout: () => 0,
+  // Just enough page for showItemMenu to build its buttons.
+  document: {
+    getElementById: () => ({ innerHTML: '', appendChild(b) { buttons.push(b); } }),
+    createElement: () => ({ addEventListener(_, fn) { this.click = fn; } }),
+  },
+};
 vm.createContext(ctx);
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 vm.runInContext(src('creatures.js') + '\n' + src('battle.js') + '\n' + src('game.js') +
@@ -41,4 +50,19 @@ test('the fainted lead stays on the team', () => {
   game.checkBattleStatus();
   assert.equal(game.player.team.length, 3);
   assert.ok(game.player.team.includes(lead));
+});
+
+test('a potion after a faint heals the CodeMon that is fighting', () => {
+  const { game, lead, fresh } = leadJustFainted();
+  game.checkBattleStatus();
+  fresh.currentHp = 5;
+  game.player.items.potion = 1;
+  game.battle.enemyTurn = () => {};
+  game.moveSelectModal = { classList: { remove() {} } };
+  for (const m of ['closeMoveModal', 'checkBattleStatus']) game[m] = () => {};
+  buttons.length = 0;
+  game.showItemMenu();
+  buttons[0].click();
+  assert.equal(fresh.currentHp, Math.min(fresh.hp, 25));
+  assert.equal(lead.currentHp, 0);
 });
