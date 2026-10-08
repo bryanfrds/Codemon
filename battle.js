@@ -5,8 +5,6 @@ class BattleState {
     this.playerCodemon = playerCodemon;
     this.enemyCodemon = enemyCodemon;
     this.turn = 0;
-    this.playerSpeed = playerCodemon.stats.spd;
-    this.enemySpeed = enemyCodemon.stats.spd;
     this.log = [];
     this.battleOver = false;
     // Set by the game once a finished fight's ending is scheduled (checkBattleStatus).
@@ -20,17 +18,20 @@ class BattleState {
     this.defBoost = { player: 1, enemy: 1 };
   }
 
+  // Read live, not saved at send-out: a level-up or evolution mid-fight (EXP comes
+  // after each of a trainer's knockouts) changes speed, and with it who strikes first.
+  get playerSpeed() { return this.playerCodemon.stats.spd; }
+  get enemySpeed() { return this.enemyCodemon.stats.spd; }
+
   /** The player's next CodeMon, after a switch or a faint. It brings its own speed and no Harden boost. */
   sendOutPlayer(codemon) {
     this.playerCodemon = codemon;
-    this.playerSpeed = codemon.stats.spd;
     this.defBoost.player = 1;   // Harden belonged to the one that left
   }
 
   /** A trainer's next CodeMon takes the fainted one's place, and the fight goes on. */
   sendOutEnemy(codemon) {
     this.enemyCodemon = codemon;
-    this.enemySpeed = codemon.stats.spd;
     this.defBoost.enemy = 1;   // Harden belonged to the one that fainted
     this.battleOver = false;
     this.winner = null;
@@ -113,6 +114,13 @@ class BattleState {
     if (this.battleOver) return false;
     if (!this.playerCodemon.moves.includes(moveName)) return false;
 
+    // The faster CodeMon strikes first. Knocked out before its turn, yours never moves.
+    const enemyFirst = this.determineOrder() === 'enemy';
+    if (enemyFirst) {
+      this.enemyTurn();
+      if (this.battleOver) return true;
+    }
+
     this.performMove('player', moveName);
 
     if (this.enemyCodemon.currentHp <= 0) {
@@ -123,7 +131,7 @@ class BattleState {
       return true;
     }
 
-    this.enemyTurn();
+    if (!enemyFirst) this.enemyTurn();
     return true;
   }
 
