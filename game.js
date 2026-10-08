@@ -382,8 +382,9 @@ class CodemonGame {
   beginBattle(enemy, message, guardian = false) {
     this.battle = new BattleState(this.player.getActiveCodemon(), enemy);
     this.battle.guardian = guardian;
-    // The shop is closed during fights; shut it if autoplay walked into one.
+    // The shop and the box are closed during fights; shut them if autoplay walked into one.
     document.getElementById('shopModal').classList.add('hidden');
+    this.closeBox();
     this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.switchView('battle');
     this.updateBattleUI();
