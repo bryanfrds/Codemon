@@ -634,8 +634,15 @@ class CodemonGame {
       btn.textContent = `Potion (${this.player.items.potion})`;
       btn.addEventListener('click', () => {
         if (!this.battleActive()) { this.closeMoveModal(); return; }
-        this.player.usePotion();
-        this.battle.addLog('Used potion! Recovered 20 HP.');
+        const active = this.player.getActiveCodemon();
+        const before = active.currentHp;
+        // At full HP the potion isn't used, so the turn isn't either: no free hit for the foe.
+        if (!this.player.usePotion()) {
+          this.closeMoveModal();
+          this.setStatus(`${active.species.name} is already at full HP.`);
+          return;
+        }
+        this.battle.addLog(`Used potion! Recovered ${active.currentHp - before} HP.`);
         this.battle.enemyTurn();
         this.closeMoveModal();
         this.updateBattleUI();
