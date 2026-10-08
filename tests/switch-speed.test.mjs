@@ -45,12 +45,13 @@ test('the slow lead moves second', () => {
 
 test('after the lead faints, the CodeMon sent in moves at its own speed', () => {
   const game = gameInFight();
+  const fast = game.player.team[1];
   delete game.checkBattleStatus;   // the real one handles the faint
   game.battle.playerCodemon.currentHp = 0;
   game.battle.battleOver = true;
   game.battle.winner = 'enemy';
   game.checkBattleStatus();
-  assert.equal(game.battle.playerCodemon, game.player.team[1]);
+  assert.equal(game.battle.playerCodemon, fast);
   assert.equal(game.battle.determineOrder(), 'player');
 });
 

@@ -795,9 +795,11 @@ class CodemonGame {
                    evolved ? EVOLVE_MS + 1400 : 2000);   // + time for the last hit to play
       } else {
         this.setStatus('Your CodeMon fainted!');
-        const availableCodemon = this.player.team.find(c => c.currentHp > 0);
-        if (availableCodemon) {
-          this.battle.sendOutPlayer(availableCodemon);
+        const next = this.player.team.findIndex(c => c.currentHp > 0);
+        if (next >= 0) {
+          // Make it the lead, so everything that asks for the active CodeMon sees it.
+          this.player.switchCodemon(next);
+          this.battle.sendOutPlayer(this.player.getActiveCodemon());
           this.battle.battleOver = false;
           this.battle.log = [];
           this.updateBattleUI();

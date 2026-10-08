@@ -44,12 +44,13 @@ test('the hardened lead keeps its boost while it stays in', () => {
 
 test('the CodeMon sent in after a faint starts without the boost', () => {
   const game = hardenedFight();
+  const bench = game.player.team[1];
   delete game.checkBattleStatus;   // the real one handles the faint
   game.battle.playerCodemon.currentHp = 0;
   game.battle.battleOver = true;
   game.battle.winner = 'enemy';
   game.checkBattleStatus();
-  assert.equal(game.battle.playerCodemon, game.player.team[1]);
+  assert.equal(game.battle.playerCodemon, bench);
   assert.equal(game.battle.defBoost.player, 1);
 });
 
