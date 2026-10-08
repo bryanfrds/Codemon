@@ -159,8 +159,7 @@ class CodemonGame {
     this.moveKeys = MOVE_KEYS;
     window.addEventListener('keydown', (e) => {
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      // B opens the storage box (it refuses itself mid-fight).
-      if (k === 'b' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) { this.openBox(); return; }
+      if (k === 'b' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) { this.onBoxKey(); return; }
       if (!MOVE_KEYS[k] || !this.canWalk()) return;
       e.preventDefault();                     // arrows would scroll the page
       this.heldKeys.add(k);
@@ -220,6 +219,7 @@ class CodemonGame {
     // Default trio; "Show three others" swaps it for a random set.
     this.showStarters([1, 2, 5]);             // Byteling (bug), BitRiot (code), Flowy (flow)
     document.getElementById('rerollStartersBtn').onclick = () => this.rerollStarters();
+    this.closeBox();                          // never two dialogs at once
     document.getElementById('starterModal').classList.remove('hidden');
 
     this.updateTeamUI();
@@ -612,6 +612,17 @@ class CodemonGame {
     this.boxPick = null;
     this.renderBox();
     document.getElementById('boxModal').classList.remove('hidden');
+  }
+
+  /**
+   * B toggles the box. Quietly does nothing mid-fight (so the battle's status line
+   * stays), before a starter is picked, or over another dialog, as walking does.
+   */
+  onBoxKey() {
+    const open = document.querySelector('.modal:not(.hidden)');
+    if (open === document.getElementById('boxModal')) { this.closeBox(); return; }
+    if (this.battle || !this.player.team.length || open) return;
+    this.openBox();
   }
 
   closeBox() {
