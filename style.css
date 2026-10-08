@@ -776,4 +776,4 @@ body {
 .box-avatar { flex: none; display: flex; }
 .box-name { flex: 1; font-size: 13px; min-width: 0; }
 .box-meta { display: block; font-size: 11px; color: #94a3b8; }
-.box-btn { flex: none; padding: 4px 10px; font-size: 12px; }
+.box-btn { flex: none; padding: 4px 10px; font-size: 12px; white-space: nowrap; }

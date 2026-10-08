@@ -679,7 +679,7 @@ class CodemonGame {
       } else if (this.boxPick === i) {
         button(el, 'Cancel', () => { this.boxPick = null; this.renderBox(); });
       } else {
-        button(el, 'Swap in…', () => {
+        button(el, 'Swap', () => {
           this.boxPick = i;
           this.setStatus(`Pick a team member to trade for ${c.species.name}.`);
           this.renderBox();
