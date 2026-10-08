@@ -1260,7 +1260,7 @@ class CodemonGame {
       // Worth a ball when it's weakened and the team has room.
       const enemy = this.battle.enemyCodemon;
       const weak = enemy.currentHp / enemy.hp < 0.4;
-      if (weak && !this.battle.guardian && !this.battle.trainer && this.player.items.pokeball > 0 && this.player.team.length < 6
+      if (weak && !this.battle.guardian && !this.battle.trainer && this.player.items.pokeball > 0 && this.player.team.length < TEAM_SIZE
           && Math.random() < 0.5) {
         this.confirmCatch();
         return;
