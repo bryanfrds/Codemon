@@ -72,3 +72,16 @@ test('the log says how much a potion really healed', () => {
   assert.equal(lead.currentHp, lead.hp);
   assert.equal(game.battle.log.at(-1), 'Used potion! Recovered 5 HP.');
 });
+
+test('autoplay logs how much its potion really healed', () => {
+  // Autoplay drinks below 45% HP; with a small max HP that can be under 20 missing.
+  const { game, lead } = inFight();
+  game.autoPlay = true;
+  game.fxBusy = () => false;   // no animation running
+  lead.hp = 30;
+  lead.currentHp = 13;
+  game.autoPlayStep();
+  assert.equal(lead.currentHp, 30);
+  assert.equal(game.player.items.potion, 0);
+  assert.equal(game.battle.log.at(-1), 'Used potion! Recovered 17 HP.');
+});
