@@ -63,13 +63,14 @@ test('a loss blacks out once however many times it is checked', () => {
 
 test('a faint with a backup left switches in the backup and keeps the fight going', () => {
   const game = gameInFight(2);
+  const backup = game.player.team[1];
   game.player.team[0].currentHp = 0;
   game.battle.battleOver = true;
   game.battle.playerWon = false;
   game.checkBattleStatus();
   assert.equal(timers.length, 0, 'no ending scheduled');
   assert.equal(game.battleActive(), true);
-  assert.equal(game.battle.playerCodemon, game.player.team[1]);
+  assert.equal(game.battle.playerCodemon, backup);
 });
 
 test("an ending timer leaves alone a fight that isn't the one it was set for", () => {
