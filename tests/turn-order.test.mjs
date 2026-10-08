@@ -66,3 +66,16 @@ test('a faster foe knocked out by your hit does not strike again', () => {
   assert.deepEqual(order(battle), ['enemy', 'player']);
   assert.equal(battle.winner, 'player');
 });
+
+test('a level-up mid-fight counts for who strikes first', () => {
+  // Trainer fights hand out EXP after each knockout, so your lead can get faster
+  // between the foe's CodeMon; the next one must face its new speed.
+  const battle = fight(8, 5);
+  battle.playerCodemon.stats.spd = 12;   // what levelUp() and evolveInto() do
+  const next = new Codemon(CODEMON_SPECIES[1], 10);
+  next.moves = [attack(next)];
+  next.stats.spd = 10;
+  battle.sendOutEnemy(next);
+  battle.playerAttack(battle.playerCodemon.moves[0]);
+  assert.deepEqual(order(battle), ['player', 'enemy']);
+});
