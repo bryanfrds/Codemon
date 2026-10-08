@@ -113,6 +113,13 @@ class BattleState {
     if (this.battleOver) return false;
     if (!this.playerCodemon.moves.includes(moveName)) return false;
 
+    // The faster CodeMon strikes first. Knocked out before its turn, yours never moves.
+    const enemyFirst = this.determineOrder() === 'enemy';
+    if (enemyFirst) {
+      this.enemyTurn();
+      if (this.battleOver) return true;
+    }
+
     this.performMove('player', moveName);
 
     if (this.enemyCodemon.currentHp <= 0) {
@@ -123,7 +130,7 @@ class BattleState {
       return true;
     }
 
-    this.enemyTurn();
+    if (!enemyFirst) this.enemyTurn();
     return true;
   }
 
