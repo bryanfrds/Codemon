@@ -159,6 +159,7 @@ class CodemonGame {
     this.moveKeys = MOVE_KEYS;
     window.addEventListener('keydown', (e) => {
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (k === 'b' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) { this.onBoxKey(); return; }
       if (!MOVE_KEYS[k] || !this.canWalk()) return;
       e.preventDefault();                     // arrows would scroll the page
       this.heldKeys.add(k);
@@ -181,6 +182,8 @@ class CodemonGame {
     document.getElementById('cancelCatchBtn').addEventListener('click', () => this.closeCatchModal());
     document.getElementById('closeMoveModalBtn').addEventListener('click', () => this.closeMoveModal());
     document.getElementById('navShop').addEventListener('click', () => this.openShop());
+    document.getElementById('navBox').addEventListener('click', () => this.openBox());
+    document.getElementById('closeBoxBtn').addEventListener('click', () => this.closeBox());
     // Sound on/off, remembered in this browser (see audio.js).
     const muteBtn = document.getElementById('muteBtn');
     if (muteBtn && typeof SOUND !== 'undefined') {
@@ -216,6 +219,7 @@ class CodemonGame {
     // Default trio; "Show three others" swaps it for a random set.
     this.showStarters([1, 2, 5]);             // Byteling (bug), BitRiot (code), Flowy (flow)
     document.getElementById('rerollStartersBtn').onclick = () => this.rerollStarters();
+    this.closeBox();                          // never two dialogs at once
     document.getElementById('starterModal').classList.remove('hidden');
 
     this.updateTeamUI();
@@ -378,8 +382,9 @@ class CodemonGame {
   beginBattle(enemy, message, guardian = false) {
     this.battle = new BattleState(this.player.getActiveCodemon(), enemy);
     this.battle.guardian = guardian;
-    // The shop is closed during fights; shut it if autoplay walked into one.
+    // The shop and the box are closed during fights; shut them if autoplay walked into one.
     document.getElementById('shopModal').classList.add('hidden');
+    this.closeBox();
     this.fx = { active: null, particles: [], texts: [], rings: [] };
     this.switchView('battle');
     this.updateBattleUI();
@@ -595,6 +600,123 @@ class CodemonGame {
     }
   }
 
+  /**
+   * The storage box, where catches go once the team holds 6. Shut during a
+   * fight, like the shop, so the team can't change mid-battle.
+   */
+  openBox() {
+    if (this.battle) {
+      this.setStatus('Finish the fight before opening the box.');
+      return;
+    }
+    this.boxPick = null;
+    this.renderBox();
+    document.getElementById('boxModal').classList.remove('hidden');
+  }
+
+  /**
+   * B toggles the box. Quietly does nothing mid-fight (so the battle's status line
+   * stays), before a starter is picked, or over another dialog, as walking does.
+   */
+  onBoxKey() {
+    const open = document.querySelector('.modal:not(.hidden)');
+    if (open === document.getElementById('boxModal')) { this.closeBox(); return; }
+    if (this.battle || !this.player.team.length || open) return;
+    this.openBox();
+  }
+
+  closeBox() {
+    this.boxPick = null;
+    document.getElementById('boxModal').classList.add('hidden');
+  }
+
+  renderBox() {
+    const p = this.player;
+    document.getElementById('boxCount').textContent = `${p.box.length}/${BOX_SIZE}`;
+    const row = (c, extra = '') => {
+      const el = document.createElement('div');
+      el.className = `box-row${extra}`;
+      el.innerHTML = `
+        <span class="box-avatar">${SPRITES.imgFor(c.species, 28, c.shiny)}</span>
+        <span class="box-name">${c.shiny ? '✨ ' : ''}${c.species.name}
+          <span class="box-meta">Lvl ${c.level} · HP ${c.currentHp}/${c.hp}</span></span>`;
+      return el;
+    };
+    const button = (el, label, onClick) => {
+      const b = document.createElement('button');
+      b.className = 'btn btn-primary box-btn';
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        // Autoplay can start a fight while the box is open.
+        if (this.battle) { this.closeBox(); this.setStatus('Finish the fight before opening the box.'); return; }
+        onClick();
+      });
+      el.appendChild(b);
+    };
+    const done = (ok, message) => {
+      if (ok) {
+        this.boxPick = null;
+        this.updateTeamUI();
+        this.saveGame();
+      }
+      this.setStatus(message);
+      this.renderBox();
+    };
+
+    if (this.boxPick && !p.box.includes(this.boxPick)) this.boxPick = null;   // taken meanwhile
+    // Buttons hold the CodeMon, not its slot: autoplay can reorder the team while
+    // the box is open, and a slot number would then point at someone else.
+    const teamList = document.getElementById('boxTeamList');
+    teamList.innerHTML = '';
+    p.team.forEach((c) => {
+      const el = row(c);
+      if (this.boxPick) {
+        button(el, '⇄ Swap', () => {
+          const incoming = this.boxPick;
+          const ti = p.team.indexOf(c), bi = p.box.indexOf(incoming);
+          if (ti < 0 || bi < 0) { this.boxPick = null; this.renderBox(); return; }   // moved on meanwhile
+          const ok = p.swapWithBox(ti, bi);
+          done(ok, ok ? `${incoming.species.name} joined the team and ${c.species.name} went to the box.`
+            : 'Your team needs at least one CodeMon that can fight.');
+        });
+      } else {
+        button(el, 'Store', () => {
+          const ti = p.team.indexOf(c);
+          if (ti < 0) { this.renderBox(); return; }
+          const ok = p.depositToBox(ti);
+          done(ok, ok ? `${c.species.name} went to the box.`
+            : p.box.length >= BOX_SIZE ? 'The box is full.'
+            : 'Your team needs at least one CodeMon that can fight.');
+        });
+      }
+      teamList.appendChild(el);
+    });
+
+    const boxList = document.getElementById('boxStoredList');
+    boxList.innerHTML = p.box.length ? '' : '<div class="empty-state">The box is empty. Catches go here once your team holds 6.</div>';
+    p.box.forEach((c) => {
+      const el = row(c, this.boxPick === c ? ' picked' : '');
+      if (p.team.length < TEAM_SIZE) {
+        button(el, 'Take', () => {
+          const bi = p.box.indexOf(c);
+          if (bi < 0) { this.renderBox(); return; }
+          const ok = p.withdrawFromBox(bi);
+          done(ok, ok ? `${c.species.name} joined the team.` : 'Your team is full.');
+        });
+      } else if (this.boxPick === c) {
+        button(el, 'Cancel', () => { this.boxPick = null; this.renderBox(); });
+      } else {
+        button(el, 'Swap', () => {
+          if (!p.box.includes(c)) { this.renderBox(); return; }
+          this.boxPick = c;
+          this.setStatus(`Pick a team member to trade for ${c.species.name}.`);
+          this.renderBox();
+        });
+      }
+      boxList.appendChild(el);
+    });
+  }
+
   showSwitchTeam() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     const moveList = document.getElementById('moveList');
@@ -664,7 +786,7 @@ class CodemonGame {
       this.setStatus("You can't catch a trainer's CodeMon.");
       return;
     }
-    if (this.teamFull()) return;
+    if (this.noRoomToCatch()) return;
     const info = document.getElementById('catchCreatureInfo');
     const enemy = this.battle.enemyCodemon;
     const probability = this.battle.calculateCatchProbability('pokeball');
@@ -687,7 +809,7 @@ class CodemonGame {
   confirmCatch() {
     if (!this.battleActive()) return;   // buttons stay up during the 2s end-of-fight pause
     if (this.battle.guardian || this.battle.trainer) return;   // see showCatchOptions
-    if (this.teamFull()) { this.closeCatchModal(); return; }
+    if (this.noRoomToCatch()) { this.closeCatchModal(); return; }
     const ballType = this.player.items.pokeball > 0 ? 'pokeball' : 'greatball';
     if (this.player.useItem(ballType)) {
       playSound('throw');
@@ -698,10 +820,14 @@ class CodemonGame {
       if (success) {
         const newCodemon = new Codemon(this.battle.enemyCodemon.species, this.battle.enemyCodemon.level);
         newCodemon.shiny = this.battle.enemyCodemon.shiny;
-        this.player.addCodemon(newCodemon);
+        const into = this.player.addCodemon(newCodemon);
         this.player.addGold(30);
         this.closeCatchModal();
         this.endBattle();
+        if (into === 'box') {
+          this.setStatus(`Caught ${newCodemon.species.name}! Your team is full, so it was sent to the box ` +
+            `(${this.player.box.length}/${BOX_SIZE}). Open 📦 Box to swap it in.`);
+        }
       } else {
         this.closeCatchModal();
         // A failed throw gives the foe a free hit, which can knock your CodeMon
@@ -712,12 +838,13 @@ class CodemonGame {
   }
 
   /**
-   * A team holds 6 and there's nowhere else to keep a catch: a 7th used to be
-   * "caught", paid for, and quietly dropped along with the ball. Says so if full.
+   * Catches beyond a full team go to the box. Only with both full is there
+   * nowhere to keep one: a catch then used to be "caught", paid for, and quietly
+   * dropped along with the ball. Says so if there's no room.
    */
-  teamFull() {
-    if (this.player.team.length < 6) return false;
-    this.setStatus('Your team is full (6 CodeMon), so there is no room to catch another.');
+  noRoomToCatch() {
+    if (this.player.hasRoom()) return false;
+    this.setStatus(`Your team and your box are full (${TEAM_SIZE} + ${BOX_SIZE} CodeMon), so there is no room to catch another.`);
     return true;
   }
 
@@ -843,7 +970,8 @@ class CodemonGame {
   /**
    * Saved in localStorage under SAVE_KEY. Only what can't be rebuilt is stored:
    * each creature's species, level, exp and HP (stats and moves come back from
-   * the species), plus gold, items, Pokedex and the current area.
+   * the species), for the team and the storage box, plus gold, items, Pokedex
+   * and the current area.
    */
   saveGame() {
     if (!this.player.team.length) return;       // nothing chosen yet
@@ -853,6 +981,10 @@ class CodemonGame {
     // mid-fight still rewinds to the last save; the README says so.)
     if (this.battle) return;
     if (this.wiped) return;                     // New game is in progress
+    const saved = (c) => ({
+      species: c.species.id, level: c.level, exp: c.exp,
+      expToLevel: c.expToLevel, hp: c.currentHp, shiny: c.shiny,
+    });
     const data = {
       v: SAVE_VERSION,
       gold: this.player.gold,
@@ -861,10 +993,8 @@ class CodemonGame {
       area: this.currentArea,
       guardiansBeaten: this.guardiansBeaten,
       trainersBeaten: this.trainersBeaten,
-      team: this.player.team.map(c => ({
-        species: c.species.id, level: c.level, exp: c.exp,
-        expToLevel: c.expToLevel, hp: c.currentHp, shiny: c.shiny,
-      })),
+      team: this.player.team.map(saved),
+      box: this.player.box.map(saved),
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) { /* storage blocked */ }
   }
@@ -883,7 +1013,7 @@ class CodemonGame {
       if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.team)) return false;
 
       const speciesById = (id) => CODEMON_SPECIES.find(sp => sp.id === id);
-      const team = data.team.map(t => {
+      const restore = (t) => {
         const species = t && speciesById(t.species);
         if (!species || !Number.isInteger(t.level) || t.level < 1 || t.level > 100) return null;
         const c = new Codemon(species, t.level);
@@ -896,8 +1026,11 @@ class CodemonGame {
         c.currentHp = Number.isFinite(t.hp) ? Math.max(0, Math.min(c.hp, Math.round(t.hp))) : c.hp;
         c.shiny = t.shiny === true;
         return c;
-      }).filter(Boolean);
+      };
+      const team = data.team.map(restore).filter(Boolean);
       if (!team.length) return false;           // e.g. every species was removed
+      // A save from before the box has none; a broken one drops bad entries.
+      const box = (Array.isArray(data.box) ? data.box.map(restore).filter(Boolean) : []).slice(0, BOX_SIZE);
 
       let gold = Number.isFinite(data.gold) && data.gold >= 0 ? Math.floor(data.gold) : this.player.gold;
       // Saved with everyone fainted (older saves could be): treat it as the
@@ -914,6 +1047,7 @@ class CodemonGame {
       if (firstReady > 0) team.unshift(...team.splice(firstReady, 1));
 
       this.player.team = team;
+      this.player.box = box;
       this.player.gold = gold;
       // Only item kinds the game knows, and only whole non-negative counts.
       for (const k of Object.keys(this.player.items)) {
@@ -924,7 +1058,7 @@ class CodemonGame {
       // Pokedex screen and inflated the caught count.
       const dex = Array.isArray(data.pokedex) ? data.pokedex : [];
       this.player.pokedex = new Set(
-        [...dex, ...team.map(c => c.species.id)].filter(id => speciesById(id)));
+        [...dex, ...team.map(c => c.species.id), ...box.map(c => c.species.id)].filter(id => speciesById(id)));
 
       // Guardians beaten: area numbers only, each once. A save from before
       // guardians existed counts every area below its own as beaten, so nobody
@@ -1126,7 +1260,7 @@ class CodemonGame {
       // Worth a ball when it's weakened and the team has room.
       const enemy = this.battle.enemyCodemon;
       const weak = enemy.currentHp / enemy.hp < 0.4;
-      if (weak && !this.battle.guardian && !this.battle.trainer && this.player.items.pokeball > 0 && this.player.team.length < 6
+      if (weak && !this.battle.guardian && !this.battle.trainer && this.player.items.pokeball > 0 && this.player.team.length < TEAM_SIZE
           && Math.random() < 0.5) {
         this.confirmCatch();
         return;

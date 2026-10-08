@@ -27,6 +27,7 @@ A creature-collecting battle RPG in plain HTML, CSS and JavaScript. Pick a start
 
 - **Animated battles** — attacks lunge, hits flash and shake with sparks in the move's type colour, damage numbers float up, and HP bars drop when the hit lands.
 - **Catching** with Pokéballs and Great Balls; weaken a CodeMon first for better odds.
+- **Storage box**: a team holds 6, and later catches go to a box that holds 30 more. Open **📦 Box** (or press **B**) between fights to take one out, store one, or swap a stored CodeMon for a team member. Your team always keeps at least one CodeMon that can fight. Autoplay only catches while the team has room, so it never fills the box on its own.
 - **Items** — potions to heal mid-fight.
 - **Area guardians**: each area has a guardian, its strongest CodeMon at a fixed level (12, 20, 28, 36) with extra HP. Beat it with the 👑 Guardian button to open the next area and win 200 gold. Guardians can't be caught or run from, and locked areas show a 🔒. On autoplay, it challenges the guardian once the lead reaches its level and moves on to the new area after a win. After a loss it waits until the lead is two levels stronger before trying again.
 - **Trainer battles**: each area has a trainer (Intern Ivy, Sysadmin Sam, Hacker Hex and Architect Ada) with three of that area's CodeMon, sent out one after another with no break to heal. Challenge them with the 🎓 Trainer button. Beating a trainer pays 120 gold on top of the usual 50 per knockout. Losing is a normal blackout, and their CodeMon can't be caught or run from. Trainers are optional: the guardian still opens the next area. In `scripts/sim-trainers.mjs`, a lone starter two levels under the guardian, with no items, wins 45–100% in the first area, 31–100% in the second, 67–100% in the third and 53–100% in the last, depending on the starter (Byteling has the hardest time). Autoplay may challenge the trainer from two levels under the guardian, and waits two more levels after a loss. It doesn't come back for a trainer once it has moved on to the next area.
@@ -73,7 +74,7 @@ Progress saves automatically in your browser, after each battle, when you change
 2. Walk around with the arrow buttons, or press **ENCOUNTER** to find a wild CodeMon.
 3. In battle: **MOVE** to attack, **ITEM** for a potion, **CATCH** to throw a ball, **SWITCH** to swap team members, **RUN** to flee.
 4. Take on an area's **🎓 Trainer** for extra gold, if you like. Beat its **👑 Guardian** to open the next one, then change area from the **AREAS** panel to meet different CodeMon.
-5. Spend gold in the **SHOP** between fights.
+5. Spend gold in the **SHOP** between fights, and swap CodeMon in and out of the **📦 Box** (**B**).
 6. Or press **🤖 AUTOPLAY** and let it play.
 
 ---

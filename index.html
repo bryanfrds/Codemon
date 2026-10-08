@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1791443911">
+  <link rel="stylesheet" href="style.css?v=1791453216">
 </head>
 <body class="bg-dark">
   <div class="app-container">
@@ -153,6 +153,7 @@
           <button id="navTeam" class="nav-btn">👥 Team</button>
           <button id="navTraining" class="nav-btn">💪 Training</button>
           <button id="navShop" class="nav-btn">🛒 Shop</button>
+          <button id="navBox" class="nav-btn" title="Storage box for CodeMon beyond a full team (B)">📦 Box</button>
           <button id="navGuardian" class="nav-btn" title="Beat this area's guardian to open the next area">👑 Guardian</button>
           <button id="navTrainer" class="nav-btn" title="Battle this area's trainer: three CodeMon in a row, for gold">🎓 Trainer</button>
           <button id="newGameBtn" class="nav-btn new-game-btn">↺ New game</button>
@@ -200,6 +201,23 @@
     </div>
   </div>
 
+  <div id="boxModal" class="modal hidden">
+    <div class="modal-content box-modal">
+      <h2>STORAGE BOX <span id="boxCount" class="box-count">0/30</span></h2>
+      <div class="box-columns">
+        <div>
+          <h3 class="box-heading">Team</h3>
+          <div id="boxTeamList" class="box-list"></div>
+        </div>
+        <div>
+          <h3 class="box-heading">Box</h3>
+          <div id="boxStoredList" class="box-list box-stored"></div>
+        </div>
+      </div>
+      <button id="closeBoxBtn" class="btn btn-secondary">BACK</button>
+    </div>
+  </div>
+
   <div id="moveSelectModal" class="modal hidden">
     <div class="modal-content">
       <h2>SELECT MOVE</h2>
@@ -208,10 +226,10 @@
     </div>
   </div>
 
-  <script src="audio.js?v=1791443911"></script>
-  <script src="sprites.js?v=1791443911"></script>
-  <script src="creatures.js?v=1791443911"></script>
-  <script src="battle.js?v=1791443911"></script>
-  <script src="game.js?v=1791443911"></script>
+  <script src="audio.js?v=1791453216"></script>
+  <script src="sprites.js?v=1791453216"></script>
+  <script src="creatures.js?v=1791453216"></script>
+  <script src="battle.js?v=1791453216"></script>
+  <script src="game.js?v=1791453216"></script>
 </body>
 </html>

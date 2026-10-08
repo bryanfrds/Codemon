@@ -14283,12 +14283,17 @@ function nextRestock(player) {
                                        && player.gold >= SHOP_PRICES[k]) || null;
 }
 
+// A team holds 6. Catches beyond that go to the storage box, which holds this many.
+const TEAM_SIZE = 6;
+const BOX_SIZE = 30;
+
 class Player {
   constructor() {
     this.level = 1;
     this.exp = 0;
     this.gold = 100;
     this.team = [];
+    this.box = [];
     this.pokedex = new Set();
     this.items = {
       pokeball: 5,
@@ -14298,13 +14303,53 @@ class Player {
     };
   }
 
+  /** Where a catch goes: 'team', 'box' once the team is full, or false if both are full. */
   addCodemon(codemon) {
-    if (this.team.length < 6) {
-      this.team.push(codemon);
-      this.pokedex.add(codemon.species.id);
-      return true;
-    }
-    return false;
+    const into = this.team.length < TEAM_SIZE ? 'team' : this.box.length < BOX_SIZE ? 'box' : false;
+    if (!into) return false;
+    this[into].push(codemon);
+    this.pokedex.add(codemon.species.id);
+    return into;
+  }
+
+  /** Whether a catch has somewhere to go. */
+  hasRoom() {
+    return this.team.length < TEAM_SIZE || this.box.length < BOX_SIZE;
+  }
+
+  /** Move a stored CodeMon onto the team, if it has a free slot. */
+  withdrawFromBox(boxIdx) {
+    if (!Number.isInteger(boxIdx) || !this.box[boxIdx] || this.team.length >= TEAM_SIZE) return false;
+    this.team.push(...this.box.splice(boxIdx, 1));
+    this.leadWithAFighter();
+    return true;
+  }
+
+  /** Store a team member. The team keeps at least one CodeMon that can fight. */
+  depositToBox(teamIdx) {
+    if (!Number.isInteger(teamIdx) || !this.team[teamIdx] || this.box.length >= BOX_SIZE) return false;
+    if (!this.team.some((c, i) => i !== teamIdx && c.currentHp > 0)) return false;
+    this.box.push(...this.team.splice(teamIdx, 1));
+    this.leadWithAFighter();
+    return true;
+  }
+
+  /** Trade a team member for a stored one, in the same team slot. */
+  swapWithBox(teamIdx, boxIdx) {
+    if (!Number.isInteger(teamIdx) || !Number.isInteger(boxIdx)) return false;
+    const out = this.team[teamIdx], into = this.box[boxIdx];
+    if (!out || !into) return false;
+    if (into.currentHp <= 0 && !this.team.some((c, i) => i !== teamIdx && c.currentHp > 0)) return false;
+    this.team[teamIdx] = into;
+    this.box[boxIdx] = out;
+    this.leadWithAFighter();
+    return true;
+  }
+
+  /** Battles send out team[0], so keep a CodeMon that can fight in front. */
+  leadWithAFighter() {
+    const first = this.team.findIndex(c => c.currentHp > 0);
+    if (first > 0) this.team.unshift(...this.team.splice(first, 1));
   }
 
   getActiveCodemon() {
@@ -14368,6 +14413,8 @@ class Player {
 
 window.Codemon = Codemon;
 window.Player = Player;
+window.TEAM_SIZE = TEAM_SIZE;
+window.BOX_SIZE = BOX_SIZE;
 window.CODEMON_SPECIES = CODEMON_SPECIES;
 window.MOVE_POOL = MOVE_POOL;
 window.SHOP_PRICES = SHOP_PRICES;
