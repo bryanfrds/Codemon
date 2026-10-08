@@ -56,7 +56,8 @@ function setup(boxed = 1) {
 }
 const teamButton = (i) => els.boxTeamList.children[i].children[0].listeners.click;
 const boxButton = (i) => els.boxStoredList.children[i].children[0].listeners.click;
-const names = (list) => list.map(c => c.species.name);
+// Array.from, so the result is an array of this realm and deepEqual can compare it.
+const names = (list) => Array.from(list, c => c.species.name);
 
 test('a fight starting while the box is open closes it', () => {
   const { g } = setup();
