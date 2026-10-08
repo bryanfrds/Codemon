@@ -20,6 +20,12 @@ class BattleState {
     this.defBoost = { player: 1, enemy: 1 };
   }
 
+  /** The player's next CodeMon, after a switch or a faint. Turn order and escape odds use its speed. */
+  sendOutPlayer(codemon) {
+    this.playerCodemon = codemon;
+    this.playerSpeed = codemon.stats.spd;
+  }
+
   /** A trainer's next CodeMon takes the fainted one's place, and the fight goes on. */
   sendOutEnemy(codemon) {
     this.enemyCodemon = codemon;
@@ -143,7 +149,7 @@ class BattleState {
 
   playerSwitch(newCodemon) {
     if (this.battleOver) return;
-    this.playerCodemon = newCodemon;
+    this.sendOutPlayer(newCodemon);
     this.log.push(`Switched to ${newCodemon.species.name}!`);
     this.enemyTurn();
   }
